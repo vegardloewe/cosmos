@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useBoardStore } from "../stores/board-store";
+import { MarkdownEditor } from "./MarkdownEditor";
 
 type Tab = "image" | "video" | "link" | "note";
 
@@ -214,9 +215,9 @@ export function AddModal({ onClose }: AddModalProps) {
                 placeholder="Title"
                 className="w-full px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
               />
-              <textarea
+              <MarkdownEditor
                 value={noteContent}
-                onChange={(e) => setNoteContent(e.target.value)}
+                onChange={setNoteContent}
                 placeholder="Write your note..."
                 rows={6}
                 className="w-full flex-1 px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20 resize-none"

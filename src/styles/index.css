@@ -30,6 +30,109 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Markdown prose styles for cards */
+.prose-card h1,
+.prose-card h2,
+.prose-card h3 {
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0.25em 0;
+}
+.prose-card h1 {
+  font-size: 1.25em;
+}
+.prose-card h2 {
+  font-size: 1.1em;
+}
+.prose-card h3 {
+  font-size: 1em;
+}
+.prose-card p {
+  margin: 0.25em 0;
+}
+.prose-card strong {
+  font-weight: 600;
+  color: #ffffff;
+}
+.prose-card em {
+  font-style: italic;
+}
+.prose-card del {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.prose-card ul,
+.prose-card ol {
+  padding-left: 1.25em;
+  margin: 0.25em 0;
+}
+.prose-card li {
+  margin: 0.1em 0;
+}
+.prose-card input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #5C626B;
+  border-radius: 50%;
+  margin-right: 0.5em;
+  vertical-align: middle;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.prose-card input[type="checkbox"]:checked {
+  background-color: #5cb13e;
+  border-color: #5cb13e;
+}
+.prose-card input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4.5px;
+  top: 1.5px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.prose-card a {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.prose-card a:hover {
+  color: #93bbfd;
+}
+.prose-card code {
+  font-size: 0.85em;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+}
+.prose-card blockquote {
+  border-left: 2px solid rgba(255, 255, 255, 0.15);
+  padding-left: 0.75em;
+  margin: 0.25em 0;
+  opacity: 0.8;
+}
+.prose-card[contenteditable="true"]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+.prose-card ul {
+  list-style: disc;
+}
+.prose-card li:has(> input[type="checkbox"]) {
+  list-style: none;
+}
+.prose-card ol {
+  list-style: decimal;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

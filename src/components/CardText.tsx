@@ -1,3 +1,4 @@
+import ReactMarkdown from "react-markdown";
 import type { BoardItem } from "../types";
 
 interface CardTextProps {
@@ -13,9 +14,9 @@ export function CardText({ item }: CardTextProps) {
         </h3>
       )}
       {item.excerpt && (
-        <p className="text-sm text-[#A8B4C6] leading-relaxed line-clamp-6">
-          {item.excerpt}
-        </p>
+        <div className="text-sm text-[#A8B4C6] leading-relaxed line-clamp-6 prose-card">
+          <ReactMarkdown>{item.excerpt}</ReactMarkdown>
+        </div>
       )}
       {/* Bottom fade */}
       <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-surface to-transparent pointer-events-none" />

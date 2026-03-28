@@ -5,6 +5,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { TagPill } from "./TagPill";
 import { CollectionPicker } from "./CollectionPicker";
 import { PlusIcon } from "lucide-react";
+import { MarkdownEditor } from "./MarkdownEditor";
 
 function formatDate(millis: string): string {
   const date = new Date(Number(millis));
@@ -243,19 +244,16 @@ export function ItemDetail() {
               )}
               {item.type === "text" && (
                 <div className="w-full max-w-md">
-                  <textarea
-                    value={editingExcerpt ? excerptValue : item.excerpt || ""}
-                    onChange={(e) => setExcerptValue(e.target.value)}
-                    onFocus={() => {
-                      if (!editingExcerpt) {
-                        setExcerptValue(item.excerpt || "");
-                        setEditingExcerpt(true);
-                      }
+                  <MarkdownEditor
+                    value={item.excerpt || ""}
+                    onChange={(v) => {
+                      setExcerptValue(v);
+                      setEditingExcerpt(true);
                     }}
                     onBlur={handleExcerptSave}
                     placeholder="Write your note..."
                     rows={Math.max(8, (item.excerpt || "").split("\n").length + 1)}
-                    className="w-full px-4 py-3 bg-transparent rounded-lg text-[#A8B4C6] leading-relaxed text-md outline-none resize-none placeholder:text-text-muted"
+                    className="w-full px-4 py-3 bg-transparent rounded-lg text-[#A8B4C6] leading-relaxed text-md"
                   />
                 </div>
               )}
