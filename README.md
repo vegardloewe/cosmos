@@ -1,6 +1,6 @@
 # Cosmos
 
-A local-first moodboard app for macOS. Collect images, links, and text notes in a visual masonry grid — all stored as plain files in a folder you choose.
+A local-first bookmark app for macOS. Collect images, links, and text notes in a visual masonry grid — all stored as plain files in a folder you choose.
 
 Built with Tauri 2 + React + TypeScript.
 
@@ -37,7 +37,7 @@ Built with Tauri 2 + React + TypeScript.
 
 ```
 ~/MyVault/
-├── .moodboard/
+├── .cosmos/
 │   ├── index.json          # Metadata index for all items
 │   └── assets/             # Images, videos, link thumbnails
 │       ├── a1b2c3d4.jpg
@@ -70,7 +70,9 @@ npm run tauri dev
 npm run tauri build
 ```
 
-The built app will be at `src-tauri/target/release/bundle/macos/Cosmos.app`.
+The built app will be at `src-tauri/target/release/bundle/macos/Cosmos.app`. Open the generated `.dmg` and drag Cosmos into Applications.
+
+![Installation](app-installation.png)
 
 ### MCP Server (Claude Desktop)
 
@@ -89,9 +91,9 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
   "mcpServers": {
     "cosmos": {
       "command": "node",
-      "args": ["/path/to/moodboard/mcp-server/dist/index.js"],
+      "args": ["/path/to/cosmos/mcp-server/dist/index.js"],
       "env": {
-        "MOODBOARD_VAULT": "/path/to/your/vault"
+        "COSMOS_VAULT": "/path/to/your/vault"
       }
     }
   }
