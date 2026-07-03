@@ -1,11 +1,17 @@
 import { create } from "zustand";
-import type { BoardItem, Collection, ItemType } from "../types";
+import type { BoardItem, Book, BookStatus, Collection, ItemType } from "../types";
 import * as commands from "../lib/tauri-commands";
+
+export type AppMode = "moodboard" | "books";
+export type BooksTab = "library" | "want";
 
 interface BoardState {
   vaultPath: string | null;
   items: BoardItem[];
   collections: Collection[];
+  books: Book[];
+  appMode: AppMode;
+  booksTab: BooksTab;
   searchQuery: string;
   filterType: ItemType | null;
   filterCollectionId: string | null;
@@ -23,6 +29,8 @@ interface BoardState {
   addVideoData: (data: number[], ext: string) => Promise<void>;
   addLink: (url: string) => Promise<void>;
   addNote: (title: string, content: string) => Promise<void>;
+  addCapturedItem: (item: BoardItem) => void;
+  applyEnrichedItem: (item: BoardItem) => void;
   removeItem: (id: string) => Promise<void>;
   updateItemTags: (id: string, tags: string[]) => Promise<void>;
   updateItemField: (id: string, field: Partial<BoardItem>) => Promise<void>;
@@ -31,6 +39,12 @@ interface BoardState {
   renameCollection: (id: string, name: string) => Promise<void>;
   updateItemCollections: (id: string, collectionIds: string[]) => Promise<void>;
   autoTagItem: (id: string) => Promise<void>;
+  addBook: (title: string, author: string | null, coverUrl: string | null, status: BookStatus, yearRead: number | null) => Promise<void>;
+  updateBook: (id: string, changes: Partial<Book>) => Promise<void>;
+  setBookCover: (id: string, sourcePath: string) => Promise<void>;
+  removeBook: (id: string) => Promise<void>;
+  setAppMode: (mode: AppMode) => void;
+  setBooksTab: (tab: BooksTab) => void;
   setSearchQuery: (query: string) => void;
   setFilterType: (type: ItemType | null) => void;
   setFilterCollection: (id: string | null) => void;
@@ -41,6 +55,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   vaultPath: null,
   items: [],
   collections: [],
+  books: [],
+  appMode: (localStorage.getItem("cosmos-mode") as AppMode) || "moodboard",
+  booksTab: "library",
   searchQuery: "",
   filterType: null,
   filterCollectionId: null,
@@ -55,7 +72,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       const path = await commands.getVaultPath();
       if (path) {
         const index = await commands.openVault(path);
-        set({ vaultPath: path, items: index.items, collections: index.collections || [] });
+        set({ vaultPath: path, items: index.items, collections: index.collections || [], books: index.books || [] });
       }
     } catch (e) {
       console.error("Failed to load vault:", e);
@@ -67,13 +84,13 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   createNewVault: async (path: string) => {
     await commands.createVault(path);
     await commands.setVaultPath(path);
-    set({ vaultPath: path, items: [], collections: [] });
+    set({ vaultPath: path, items: [], collections: [], books: [] });
   },
 
   openExistingVault: async (path: string) => {
     const index = await commands.openVault(path);
     await commands.setVaultPath(path);
-    set({ vaultPath: path, items: index.items, collections: index.collections || [] });
+    set({ vaultPath: path, items: index.items, collections: index.collections || [], books: index.books || [] });
   },
 
   addImage: async (sourcePath: string) => {
@@ -180,6 +197,19 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     set((s) => ({
       items: s.items.map((i) => i.id === placeholderId ? item : i),
       pendingItemId: s.pendingItemId === placeholderId ? null : s.pendingItemId,
+    }));
+    get().autoTagItem(item.id);
+  },
+
+  // Item already written to the vault by the global capture hotkey (Rust side).
+  // Arrives bare (just the URL); metadata and AI tags follow via applyEnrichedItem.
+  addCapturedItem: (item: BoardItem) => {
+    set((s) => ({ items: [item, ...s.items] }));
+  },
+
+  applyEnrichedItem: (item: BoardItem) => {
+    set((s) => ({
+      items: s.items.map((i) => (i.id === item.id ? { ...i, ...item } : i)),
     }));
     get().autoTagItem(item.id);
   },
@@ -306,6 +336,46 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     poll(5);
   },
 
+  addBook: async (title, author, coverUrl, status, yearRead) => {
+    const { vaultPath } = get();
+    if (!vaultPath) return;
+    const book = await commands.addBook(vaultPath, title, author, coverUrl, status, yearRead);
+    set((s) => ({ books: [book, ...s.books] }));
+  },
+
+  updateBook: async (id, changes) => {
+    const { vaultPath, books } = get();
+    if (!vaultPath) return;
+    const book = books.find((b) => b.id === id);
+    if (!book) return;
+    const updated = { ...book, ...changes };
+    await commands.updateBook(vaultPath, updated);
+    set((s) => ({
+      books: s.books.map((b) => (b.id === id ? updated : b)),
+    }));
+  },
+
+  setBookCover: async (id, sourcePath) => {
+    const { vaultPath } = get();
+    if (!vaultPath) return;
+    const updated = await commands.setBookCover(vaultPath, id, sourcePath);
+    set((s) => ({
+      books: s.books.map((b) => (b.id === id ? updated : b)),
+    }));
+  },
+
+  removeBook: async (id) => {
+    const { vaultPath } = get();
+    if (!vaultPath) return;
+    await commands.deleteBook(vaultPath, id);
+    set((s) => ({ books: s.books.filter((b) => b.id !== id) }));
+  },
+
+  setAppMode: (mode: AppMode) => {
+    localStorage.setItem("cosmos-mode", mode);
+    set({ appMode: mode });
+  },
+  setBooksTab: (tab: BooksTab) => set({ booksTab: tab }),
   setSearchQuery: (query: string) => set({ searchQuery: query }),
   setFilterType: (type: ItemType | null) => set({ filterType: type }),
   setFilterCollection: (id: string | null) => set({ filterCollectionId: id }),

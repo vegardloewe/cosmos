@@ -133,6 +133,94 @@ body {
   list-style: decimal;
 }
 
+/* 3D book (Geist-style) */
+.book-3d {
+  perspective: 1000px;
+}
+.book-3d-inner {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.2, 0.65, 0.3, 1);
+}
+.book-3d:hover .book-3d-inner {
+  transform: rotateY(-22deg);
+}
+.book-3d-cover {
+  position: absolute;
+  inset: 0;
+  transform: translateZ(16px);
+  border-radius: 2px 8px 8px 2px;
+  overflow: hidden;
+  background: var(--color-surface);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.45);
+}
+/* Spine crease / hinge highlight on the left edge of the cover */
+.book-3d-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 16px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.35) 0%,
+    rgba(255, 255, 255, 0.2) 20%,
+    rgba(255, 255, 255, 0.05) 40%,
+    rgba(0, 0, 0, 0.15) 65%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+/* Page-stack edge, revealed on the right side when the book tilts.
+   Layered backgrounds: cover contact shadow (left = front cover side),
+   top/bottom ambient occlusion, then fine page striations on white. */
+.book-3d-pages {
+  position: absolute;
+  top: 1.5%;
+  bottom: 1.5%;
+  right: 0;
+  width: 16px;
+  transform-origin: right;
+  transform: rotateY(90deg);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.1) 0%,
+      rgba(0, 0, 0, 0) 7%,
+      rgba(0, 0, 0, 0) 93%,
+      rgba(0, 0, 0, 0.1) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.22) 0%,
+      rgba(0, 0, 0, 0.06) 12%,
+      rgba(0, 0, 0, 0) 30%,
+      rgba(0, 0, 0, 0) 78%,
+      rgba(0, 0, 0, 0.09) 100%
+    ),
+    repeating-linear-gradient(
+      90deg,
+      #ffffff 0px,
+      #ffffff 1.5px,
+      #e7eaef 2px,
+      #f5f7f9 2.5px
+    ),
+    #fdfdfd;
+  border-radius: 0 2px 2px 0;
+  /* Edge-on at rest it still antialiases into a visible sliver — hide until the tilt reveals it */
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.book-3d:hover .book-3d-pages {
+  opacity: 1;
+}
+.book-3d-back {
+  position: absolute;
+  inset: 0;
+  background: #101112;
+  border-radius: 2px 8px 8px 2px;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

@@ -29,8 +29,29 @@ export interface BoardItem {
   excerpt?: string;
 }
 
+export type BookStatus = "reading" | "read" | "want";
+
+export interface Book {
+  id: string;
+  title: string;
+  author?: string;
+  coverPath?: string;
+  status: BookStatus;
+  yearRead?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BookSearchResult {
+  title: string;
+  author?: string;
+  coverUrl?: string;
+  firstPublishYear?: number;
+}
+
 export interface VaultIndex {
   version: number;
   items: BoardItem[];
   collections: Collection[];
+  books?: Book[];
 }

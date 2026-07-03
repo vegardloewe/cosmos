@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { BoardItem, Collection, VaultIndex } from "../types";
+import type { Book, BookSearchResult, BookStatus, BoardItem, Collection, VaultIndex } from "../types";
 
 export function createVault(path: string): Promise<void> {
   return invoke("create_vault", { path });
@@ -75,4 +75,31 @@ export function renameCollection(vault: string, id: string, name: string): Promi
 
 export function autoTagItem(vault: string, itemId: string): Promise<void> {
   return invoke("auto_tag_item", { vault, itemId });
+}
+
+export function searchBooks(query: string): Promise<BookSearchResult[]> {
+  return invoke("search_books", { query });
+}
+
+export function addBook(
+  vault: string,
+  title: string,
+  author: string | null,
+  coverUrl: string | null,
+  status: BookStatus,
+  yearRead: number | null,
+): Promise<Book> {
+  return invoke("add_book", { vault, title, author, coverUrl, status, yearRead });
+}
+
+export function updateBook(vault: string, book: Book): Promise<void> {
+  return invoke("update_book", { vault, book });
+}
+
+export function setBookCover(vault: string, id: string, source: string): Promise<Book> {
+  return invoke("set_book_cover", { vault, id, source });
+}
+
+export function deleteBook(vault: string, id: string): Promise<void> {
+  return invoke("delete_book", { vault, id });
 }

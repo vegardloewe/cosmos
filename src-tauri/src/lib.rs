@@ -1,12 +1,26 @@
 mod models;
 mod commands;
 
-use commands::{vault, items, links, ai};
+use commands::{vault, items, links, ai, books, capture};
+use tauri_plugin_global_shortcut::ShortcutState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dotenvy::dotenv().ok();
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_shortcuts(["cmd+shift+s"])
+                .expect("invalid capture shortcut")
+                .with_handler(|app, _shortcut, event| {
+                    if event.state == ShortcutState::Pressed {
+                        let app = app.clone();
+                        // Blocking work (AppleScript + HTTP fetch) off the main thread
+                        std::thread::spawn(move || capture::capture_current_page(app));
+                    }
+                })
+                .build(),
+        )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
@@ -30,6 +44,11 @@ pub fn run() {
             vault::delete_collection,
             vault::rename_collection,
             ai::auto_tag_item,
+            books::search_books,
+            books::add_book,
+            books::update_book,
+            books::set_book_cover,
+            books::delete_book,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

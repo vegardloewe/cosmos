@@ -4,8 +4,7 @@ use std::path::Path;
 use crate::models::BoardItem;
 use super::vault::{read_index, write_index};
 
-#[tauri::command]
-pub fn read_asset(vault: String, asset_path: String) -> Result<String, String> {
+fn read_asset_impl(vault: String, asset_path: String) -> Result<String, String> {
     let full_path = Path::new(&vault)
         .join(".moodboard")
         .join("assets")
@@ -41,8 +40,7 @@ pub fn read_asset(vault: String, asset_path: String) -> Result<String, String> {
     String::from_utf8(buf).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub fn read_asset_bytes(vault: String, asset_path: String) -> Result<tauri::ipc::Response, String> {
+fn read_asset_bytes_impl(vault: String, asset_path: String) -> Result<tauri::ipc::Response, String> {
     let full_path = Path::new(&vault)
         .join(".moodboard")
         .join("assets")
@@ -96,8 +94,7 @@ fn now_millis() -> String {
         .to_string()
 }
 
-#[tauri::command]
-pub fn import_image(vault: String, source: String) -> Result<BoardItem, String> {
+fn import_image_impl(vault: String, source: String) -> Result<BoardItem, String> {
     let source_path = Path::new(&source);
 
     let ext = source_path
@@ -150,8 +147,7 @@ pub fn import_image(vault: String, source: String) -> Result<BoardItem, String> 
     Ok(item)
 }
 
-#[tauri::command]
-pub fn import_image_data(vault: String, data: Vec<u8>, ext: String) -> Result<BoardItem, String> {
+fn import_image_data_impl(vault: String, data: Vec<u8>, ext: String) -> Result<BoardItem, String> {
     let id = nanoid::nanoid!();
     let filename = format!("{}.{}", id, ext);
     let dest = Path::new(&vault)
@@ -195,8 +191,7 @@ pub fn import_image_data(vault: String, data: Vec<u8>, ext: String) -> Result<Bo
     Ok(item)
 }
 
-#[tauri::command]
-pub fn import_video(vault: String, source: String) -> Result<BoardItem, String> {
+fn import_video_impl(vault: String, source: String) -> Result<BoardItem, String> {
     let source_path = Path::new(&source);
 
     let ext = source_path
@@ -243,8 +238,7 @@ pub fn import_video(vault: String, source: String) -> Result<BoardItem, String> 
     Ok(item)
 }
 
-#[tauri::command]
-pub fn import_video_data(vault: String, data: Vec<u8>, ext: String) -> Result<BoardItem, String> {
+fn import_video_data_impl(vault: String, data: Vec<u8>, ext: String) -> Result<BoardItem, String> {
     let id = nanoid::nanoid!();
     let filename = format!("{}.{}", id, ext);
     let dest = Path::new(&vault)
@@ -283,8 +277,7 @@ pub fn import_video_data(vault: String, data: Vec<u8>, ext: String) -> Result<Bo
     Ok(item)
 }
 
-#[tauri::command]
-pub fn add_note(vault: String, title: String, content: String) -> Result<BoardItem, String> {
+fn add_note_impl(vault: String, title: String, content: String) -> Result<BoardItem, String> {
     let id = nanoid::nanoid!();
     let filename = format!("{}.md", id);
     let dest = Path::new(&vault)
@@ -329,8 +322,7 @@ pub fn add_note(vault: String, title: String, content: String) -> Result<BoardIt
     Ok(item)
 }
 
-#[tauri::command]
-pub fn update_item(vault: String, item: BoardItem) -> Result<(), String> {
+fn update_item_impl(vault: String, item: BoardItem) -> Result<(), String> {
     let mut index = read_index(&vault)?;
 
     let pos = index
@@ -347,8 +339,7 @@ pub fn update_item(vault: String, item: BoardItem) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn delete_item(vault: String, id: String) -> Result<(), String> {
+fn delete_item_impl(vault: String, id: String) -> Result<(), String> {
     let mut index = read_index(&vault)?;
 
     let pos = index
@@ -387,4 +378,51 @@ pub fn delete_item(vault: String, id: String) -> Result<(), String> {
     write_index(&vault, &index)?;
 
     Ok(())
+}
+
+// Async wrappers: run the blocking bodies on the thread pool so the UI never stalls
+
+#[tauri::command]
+pub async fn read_asset(vault: String, asset_path: String) -> Result<String, String> {
+    super::run_blocking(move || read_asset_impl(vault, asset_path)).await
+}
+
+#[tauri::command]
+pub async fn read_asset_bytes(vault: String, asset_path: String) -> Result<tauri::ipc::Response, String> {
+    super::run_blocking(move || read_asset_bytes_impl(vault, asset_path)).await
+}
+
+#[tauri::command]
+pub async fn import_image(vault: String, source: String) -> Result<BoardItem, String> {
+    super::run_blocking(move || import_image_impl(vault, source)).await
+}
+
+#[tauri::command]
+pub async fn import_image_data(vault: String, data: Vec<u8>, ext: String) -> Result<BoardItem, String> {
+    super::run_blocking(move || import_image_data_impl(vault, data, ext)).await
+}
+
+#[tauri::command]
+pub async fn import_video(vault: String, source: String) -> Result<BoardItem, String> {
+    super::run_blocking(move || import_video_impl(vault, source)).await
+}
+
+#[tauri::command]
+pub async fn import_video_data(vault: String, data: Vec<u8>, ext: String) -> Result<BoardItem, String> {
+    super::run_blocking(move || import_video_data_impl(vault, data, ext)).await
+}
+
+#[tauri::command]
+pub async fn add_note(vault: String, title: String, content: String) -> Result<BoardItem, String> {
+    super::run_blocking(move || add_note_impl(vault, title, content)).await
+}
+
+#[tauri::command]
+pub async fn update_item(vault: String, item: BoardItem) -> Result<(), String> {
+    super::run_blocking(move || update_item_impl(vault, item)).await
+}
+
+#[tauri::command]
+pub async fn delete_item(vault: String, id: String) -> Result<(), String> {
+    super::run_blocking(move || delete_item_impl(vault, id)).await
 }

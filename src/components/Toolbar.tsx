@@ -12,6 +12,7 @@ const FILTER_OPTIONS: { label: string; value: ItemType | null }[] = [
 ];
 
 export function Toolbar() {
+  const appMode = useBoardStore((s) => s.appMode);
   const searchQuery = useBoardStore((s) => s.searchQuery);
   const setSearchQuery = useBoardStore((s) => s.setSearchQuery);
   const filterType = useBoardStore((s) => s.filterType);
@@ -37,6 +38,7 @@ export function Toolbar() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (appMode !== "moodboard") return;
       if (e.metaKey && e.key === "f") {
         e.preventDefault();
         setShowSearch(true);
@@ -48,7 +50,7 @@ export function Toolbar() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showSearch, setSearchQuery]);
+  }, [appMode, showSearch, setSearchQuery]);
 
   useEffect(() => {
     if (showSearch) {
@@ -101,14 +103,11 @@ export function Toolbar() {
 
   return (
     <>
-      <header className="sticky h-12 top-0 z-50 flex items-center gap-4 pl-20 pr-6 bg-bg border-b border-border relative">
-        {/* Drag region overlay — sits behind interactive elements */}
-        <div data-tauri-drag-region className="absolute inset-0 z-0" />
-        {/* Left: Logo (offset for traffic lights) */}
-        <span className="text-xl font-bold tracking-tighter text-text shrink-0 relative z-10">
-          Cosmos
-        </span>
-
+      <div
+        className={`flex-1 min-w-0 items-center gap-4 relative z-10 ${
+          appMode === "moodboard" ? "flex" : "hidden"
+        }`}
+      >
         {/* Center: Search (Cmd+F to show, Escape to hide) */}
         {showSearch ? (
           <div className="flex-1 max-w-md mx-auto relative z-10">
@@ -128,7 +127,7 @@ export function Toolbar() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search..."
-              className="w-full pl-10 pr-4 py-2 bg-surface rounded-lg text-sm text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20 transition-shadow"
+              className="w-full pl-10 pr-4 py-2 bg-surface rounded-lg text-[13px] text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20 transition-shadow"
             />
           </div>
         ) : (
@@ -150,13 +149,13 @@ export function Toolbar() {
                     if (e.key === "Enter") handleRenameSubmit();
                     if (e.key === "Escape") { setRenamingId(null); setRenameValue(""); }
                   }}
-                  className="px-4 py-1.5 rounded-full text-sm font-medium bg-[#0F1010] text-white outline-none w-40"
+                  className="px-4 py-1.5 rounded-full text-[13px] font-medium bg-[#0F1010] text-white outline-none w-40"
                 />
               ) : (
                 <button
                   onClick={() => setFilterCollection(null)}
                   onContextMenu={(e) => handleContextMenu(e, selectedCollection.id)}
-                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium bg-[#0F1010] text-white cursor-pointer transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[13px] font-medium bg-[#0F1010] text-white cursor-pointer transition-colors"
                 >
                   <span
                     className="w-3 h-3 rounded-full border-2 shrink-0"
@@ -169,7 +168,7 @@ export function Toolbar() {
             ) : (
               <button
                 onClick={() => setShowCollections(!showCollections)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${
+                className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer ${
                   showCollections
                     ? "bg-[#0F1010] text-white"
                     : "text-[#A8B4C6] hover:text-text hover:bg-[#0F1010]"
@@ -232,7 +231,7 @@ export function Toolbar() {
             <button
               key={opt.label}
               onClick={() => setFilterType(opt.value)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${
+              className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer ${
                 filterType === opt.value
                   ? "bg-[#0F1010] text-white"
                   : "text-[#A8B4C6] hover:text-text hover:bg-[#0F1010]"
@@ -248,7 +247,7 @@ export function Toolbar() {
             <Plus size={18} strokeWidth={2} />
           </button>
         </div>
-      </header>
+      </div>
 
       {showAddModal && <AddModal onClose={() => setShowAddModal(false)} />}
 

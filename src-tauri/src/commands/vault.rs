@@ -33,7 +33,11 @@ pub fn write_index(vault_path: &str, index: &VaultIndex) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn create_vault(path: String) -> Result<(), String> {
+pub async fn create_vault(path: String) -> Result<(), String> {
+    super::run_blocking(move || create_vault_impl(path)).await
+}
+
+fn create_vault_impl(path: String) -> Result<(), String> {
     let base = Path::new(&path);
     let moodboard_dir = base.join(".moodboard");
     let assets_dir = moodboard_dir.join("assets");
@@ -51,12 +55,15 @@ pub fn create_vault(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn open_vault(path: String) -> Result<VaultIndex, String> {
-    let index_path = Path::new(&path).join(".moodboard").join("index.json");
-    if !index_path.exists() {
-        return Err("No vault found at this path (missing .moodboard/index.json)".to_string());
-    }
-    read_index(&path)
+pub async fn open_vault(path: String) -> Result<VaultIndex, String> {
+    super::run_blocking(move || {
+        let index_path = Path::new(&path).join(".moodboard").join("index.json");
+        if !index_path.exists() {
+            return Err("No vault found at this path (missing .moodboard/index.json)".to_string());
+        }
+        read_index(&path)
+    })
+    .await
 }
 
 #[tauri::command]
