@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { BookOpen } from "lucide-react";
 import { useBoardStore } from "../stores/board-store";
 import { BookCard } from "./BookCard";
@@ -7,8 +7,9 @@ import type { Book } from "../types";
 const GRID_CLASS =
   "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-4 gap-y-6";
 
-function byNewest(a: Book, b: Book) {
-  return Number(b.createdAt) - Number(a.createdAt);
+// Books can only be reordered within their own section
+function groupOf(book: Book): string {
+  return book.status === "read" ? `read-${book.yearRead ?? 0}` : book.status;
 }
 
 function EmptyState({ message }: { message: string }) {
@@ -25,11 +26,13 @@ function EmptyState({ message }: { message: string }) {
 export function BooksView() {
   const books = useBoardStore((s) => s.books);
   const booksTab = useBoardStore((s) => s.booksTab);
+  const moveBook = useBoardStore((s) => s.moveBook);
+  const persistBookOrder = useBoardStore((s) => s.persistBookOrder);
+  const [dragId, setDragId] = useState<string | null>(null);
 
-  const reading = useMemo(
-    () => books.filter((b) => b.status === "reading").sort(byNewest),
-    [books],
-  );
+  // Array order is the display order (drag & drop reorders it)
+  const reading = useMemo(() => books.filter((b) => b.status === "reading"), [books]);
+  const wantToRead = useMemo(() => books.filter((b) => b.status === "want"), [books]);
 
   const readByYear = useMemo(() => {
     const read = books.filter((b) => b.status === "read");
@@ -41,12 +44,38 @@ export function BooksView() {
     }
     return [...groups.entries()]
       .sort(([a], [b]) => b - a)
-      .map(([year, items]) => ({ year, items: items.sort(byNewest) }));
+      .map(([year, items]) => ({ year, items }));
   }, [books]);
 
-  const wantToRead = useMemo(
-    () => books.filter((b) => b.status === "want").sort(byNewest),
-    [books],
+  const handleDragOver = (e: React.DragEvent, over: Book) => {
+    e.preventDefault();
+    if (!dragId || dragId === over.id) return;
+    const dragged = books.find((b) => b.id === dragId);
+    if (!dragged || groupOf(dragged) !== groupOf(over)) return;
+    moveBook(dragId, over.id);
+  };
+
+  const renderGrid = (items: Book[]) => (
+    <div className={GRID_CLASS}>
+      {items.map((book) => (
+        <div
+          key={book.id}
+          draggable
+          onDragStart={(e) => {
+            setDragId(book.id);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          onDragOver={(e) => handleDragOver(e, book)}
+          onDragEnd={() => {
+            setDragId(null);
+            persistBookOrder();
+          }}
+          className={`transition-opacity ${dragId === book.id ? "opacity-40" : ""}`}
+        >
+          <BookCard book={book} />
+        </div>
+      ))}
+    </div>
   );
 
   if (booksTab === "want") {
@@ -54,13 +83,7 @@ export function BooksView() {
       return <EmptyState message="No books here yet — add books you want to read" />;
     }
     return (
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className={GRID_CLASS}>
-          {wantToRead.map((book) => (
-            <BookCard key={book.id} book={book} />
-          ))}
-        </div>
-      </div>
+      <div className="flex-1 overflow-y-auto p-6">{renderGrid(wantToRead)}</div>
     );
   }
 
@@ -74,13 +97,9 @@ export function BooksView() {
         {reading.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-4">
-              Currently reading
+              Reading
             </h2>
-            <div className={GRID_CLASS}>
-              {reading.map((book) => (
-                <BookCard key={book.id} book={book} />
-              ))}
-            </div>
+            {renderGrid(reading)}
           </section>
         )}
 
@@ -89,11 +108,7 @@ export function BooksView() {
             <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-4">
               {year === 0 ? "Earlier" : year}
             </h2>
-            <div className={GRID_CLASS}>
-              {items.map((book) => (
-                <BookCard key={book.id} book={book} />
-              ))}
-            </div>
+            {renderGrid(items)}
           </section>
         ))}
       </div>

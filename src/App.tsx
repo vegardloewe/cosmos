@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { listen } from "@tauri-apps/api/event";
 import { useBoardStore } from "./stores/board-store";
 import type { BoardItem } from "./types";
@@ -9,6 +8,10 @@ import { Toolbar } from "./components/Toolbar";
 import { ItemDetail } from "./components/ItemDetail";
 import { BooksToolbar } from "./components/BooksToolbar";
 import { BooksView } from "./components/BooksView";
+import { GoalsToolbar } from "./components/GoalsToolbar";
+import { GoalsView } from "./components/GoalsView";
+import { TasksToolbar } from "./components/TasksToolbar";
+import { TasksView } from "./components/TasksView";
 import { ModeSwitch } from "./components/ModeSwitch";
 import "./styles/index.css";
 
@@ -19,9 +22,7 @@ function App() {
   const vaultPath = useBoardStore((s) => s.vaultPath);
   const isLoading = useBoardStore((s) => s.isLoading);
   const loadVault = useBoardStore((s) => s.loadVault);
-  const addImage = useBoardStore((s) => s.addImage);
   const addImageData = useBoardStore((s) => s.addImageData);
-  const addVideo = useBoardStore((s) => s.addVideo);
   const addVideoData = useBoardStore((s) => s.addVideoData);
   const addLink = useBoardStore((s) => s.addLink);
   const addNote = useBoardStore((s) => s.addNote);
@@ -48,38 +49,58 @@ function App() {
     };
   }, []);
 
+  // File drops use HTML5 events (Tauri's native drag-drop interception is
+  // disabled in tauri.conf.json — it would block in-app drag & drop entirely)
   useEffect(() => {
     if (!vaultPath || appMode !== "moodboard") return;
 
-    let unlisten: (() => void) | undefined;
+    let depth = 0;
+    const hasFiles = (e: DragEvent) =>
+      Array.from(e.dataTransfer?.types ?? []).includes("Files");
 
-    getCurrentWebview()
-      .onDragDropEvent((event) => {
-        if (event.payload.type === "enter") {
-          setIsDragging(true);
-        } else if (event.payload.type === "leave") {
-          setIsDragging(false);
-        } else if (event.payload.type === "drop") {
-          setIsDragging(false);
-          const { paths } = event.payload;
-          for (const path of paths) {
-            const ext = path.split(".").pop()?.toLowerCase() ?? "";
-            if (IMAGE_EXTENSIONS.includes(ext)) {
-              addImage(path);
-            } else if (VIDEO_EXTENSIONS.includes(ext)) {
-              addVideo(path);
-            }
-          }
-        }
-      })
-      .then((fn) => {
-        unlisten = fn;
-      });
-
-    return () => {
-      unlisten?.();
+    const onDragEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth++;
+      setIsDragging(true);
     };
-  }, [vaultPath, appMode, addImage, addVideo]);
+    const onDragOver = (e: DragEvent) => {
+      if (hasFiles(e)) e.preventDefault();
+    };
+    const onDragLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setIsDragging(false);
+    };
+    const onDrop = async (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      setIsDragging(false);
+      for (const file of Array.from(e.dataTransfer?.files ?? [])) {
+        const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+        if (!IMAGE_EXTENSIONS.includes(ext) && !VIDEO_EXTENSIONS.includes(ext)) continue;
+        const buffer = await file.arrayBuffer();
+        const data = Array.from(new Uint8Array(buffer));
+        if (IMAGE_EXTENSIONS.includes(ext)) {
+          await addImageData(data, ext);
+        } else {
+          await addVideoData(data, ext);
+        }
+      }
+    };
+
+    window.addEventListener("dragenter", onDragEnter);
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onDragEnter);
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, [vaultPath, appMode, addImageData, addVideoData]);
 
   // Paste handler: Cmd+V to paste images, links, or text
   useEffect(() => {
@@ -163,6 +184,8 @@ function App() {
         <ModeSwitch />
         <Toolbar />
         <BooksToolbar />
+        <GoalsToolbar />
+        <TasksToolbar />
       </header>
 
       {/* Both views stay mounted; hiding via CSS avoids reloading all assets on mode switch */}
@@ -171,6 +194,12 @@ function App() {
       </div>
       <div className={`flex-1 min-h-0 flex-col ${appMode === "books" ? "flex" : "hidden"}`}>
         <BooksView />
+      </div>
+      <div className={`flex-1 min-h-0 flex-col ${appMode === "goals" ? "flex" : "hidden"}`}>
+        <GoalsView />
+      </div>
+      <div className={`flex-1 min-h-0 flex-col ${appMode === "tasks" ? "flex" : "hidden"}`}>
+        <TasksView />
       </div>
       {appMode === "moodboard" && selectedItemId && <ItemDetail />}
 

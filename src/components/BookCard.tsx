@@ -3,6 +3,7 @@ import { BookOpen } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useBoardStore } from "../stores/board-store";
 import { readAsset } from "../lib/tauri-commands";
+import { BookEditModal } from "./BookEditModal";
 import type { Book } from "../types";
 
 interface BookCardProps {
@@ -18,6 +19,7 @@ export function BookCard({ book }: BookCardProps) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [editingYear, setEditingYear] = useState(false);
   const [yearValue, setYearValue] = useState("");
+  const [showEditModal, setShowEditModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,7 +90,7 @@ export function BookCard({ book }: BookCardProps) {
             <div className="book-3d-cover">
               {book.coverPath ? (
                 src ? (
-                  <img src={src} alt={book.title} loading="lazy" className="w-full h-full object-cover" />
+                  <img src={src} alt={book.title} loading="lazy" draggable={false} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-surface animate-pulse" />
                 )
@@ -170,6 +172,15 @@ export function BookCard({ book }: BookCardProps) {
               Move to Want to read
             </button>
           )}
+          <button
+            onClick={() => {
+              setMenu(null);
+              setShowEditModal(true);
+            }}
+            className={menuItemClass}
+          >
+            Edit details
+          </button>
           <button onClick={handlePickCover} className={menuItemClass}>
             {book.coverPath ? "Change cover" : "Add cover"}
           </button>
@@ -180,6 +191,10 @@ export function BookCard({ book }: BookCardProps) {
             Delete
           </button>
         </div>
+      )}
+
+      {showEditModal && (
+        <BookEditModal book={book} onClose={() => setShowEditModal(false)} />
       )}
     </>
   );

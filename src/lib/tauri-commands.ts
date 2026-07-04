@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Book, BookSearchResult, BookStatus, BoardItem, Collection, VaultIndex } from "../types";
+import type { Book, BookSearchResult, BookStatus, BoardItem, Collection, Goal, Task, TaskEffort, TaskPriority, TaskProject, TaskStatus, VaultIndex } from "../types";
 
 export function createVault(path: string): Promise<void> {
   return invoke("create_vault", { path });
@@ -96,10 +96,65 @@ export function updateBook(vault: string, book: Book): Promise<void> {
   return invoke("update_book", { vault, book });
 }
 
+export function reorderBooks(vault: string, ids: string[]): Promise<void> {
+  return invoke("reorder_books", { vault, ids });
+}
+
 export function setBookCover(vault: string, id: string, source: string): Promise<Book> {
   return invoke("set_book_cover", { vault, id, source });
 }
 
 export function deleteBook(vault: string, id: string): Promise<void> {
   return invoke("delete_book", { vault, id });
+}
+
+export function addGoal(
+  vault: string,
+  title: string,
+  category: string,
+  year: number,
+  progressCurrent: number | null,
+  progressTarget: number | null,
+): Promise<Goal> {
+  return invoke("add_goal", { vault, title, category, year, progressCurrent, progressTarget });
+}
+
+export function updateGoal(vault: string, goal: Goal): Promise<void> {
+  return invoke("update_goal", { vault, goal });
+}
+
+export function deleteGoal(vault: string, id: string): Promise<void> {
+  return invoke("delete_goal", { vault, id });
+}
+
+export function addTaskProject(vault: string, name: string, color: string): Promise<TaskProject> {
+  return invoke("add_task_project", { vault, name, color });
+}
+
+export function deleteTaskProject(vault: string, id: string): Promise<void> {
+  return invoke("delete_task_project", { vault, id });
+}
+
+export function addTask(
+  vault: string,
+  projectId: string,
+  title: string,
+  description: string | null,
+  status: TaskStatus,
+  priority: TaskPriority | null,
+  effort: TaskEffort | null,
+): Promise<Task> {
+  return invoke("add_task", { vault, projectId, title, description, status, priority, effort });
+}
+
+export function updateTask(vault: string, task: Task): Promise<void> {
+  return invoke("update_task", { vault, task });
+}
+
+export function deleteTask(vault: string, id: string): Promise<void> {
+  return invoke("delete_task", { vault, id });
+}
+
+export function reorderTasks(vault: string, ids: string[]): Promise<void> {
+  return invoke("reorder_tasks", { vault, ids });
 }

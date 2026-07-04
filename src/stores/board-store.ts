@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import type { BoardItem, Book, BookStatus, Collection, ItemType } from "../types";
+import type { BoardItem, Book, BookStatus, Collection, Goal, ItemType, Task, TaskEffort, TaskPriority, TaskProject, TaskStatus } from "../types";
 import * as commands from "../lib/tauri-commands";
 
-export type AppMode = "moodboard" | "books";
+export type AppMode = "moodboard" | "books" | "goals" | "tasks";
 export type BooksTab = "library" | "want";
 
 interface BoardState {
@@ -10,6 +10,10 @@ interface BoardState {
   items: BoardItem[];
   collections: Collection[];
   books: Book[];
+  goals: Goal[];
+  taskProjects: TaskProject[];
+  tasks: Task[];
+  activeProjectId: string | null;
   appMode: AppMode;
   booksTab: BooksTab;
   searchQuery: string;
@@ -43,6 +47,20 @@ interface BoardState {
   updateBook: (id: string, changes: Partial<Book>) => Promise<void>;
   setBookCover: (id: string, sourcePath: string) => Promise<void>;
   removeBook: (id: string) => Promise<void>;
+  moveBook: (draggedId: string, overId: string) => void;
+  persistBookOrder: () => Promise<void>;
+  addGoal: (title: string, category: string, progressCurrent: number | null, progressTarget: number | null) => Promise<void>;
+  updateGoal: (id: string, changes: Partial<Goal>) => Promise<void>;
+  removeGoal: (id: string) => Promise<void>;
+  addTaskProject: (name: string, color: string) => Promise<void>;
+  removeTaskProject: (id: string) => Promise<void>;
+  setActiveProject: (id: string | null) => void;
+  addTask: (title: string, description: string | null, status: TaskStatus, priority: TaskPriority | null, effort: TaskEffort | null) => Promise<void>;
+  updateTask: (id: string, changes: Partial<Task>) => Promise<void>;
+  removeTask: (id: string) => Promise<void>;
+  moveTask: (draggedId: string, overId: string) => void;
+  moveTaskToStatus: (draggedId: string, status: TaskStatus) => void;
+  persistTaskDrag: (draggedId: string) => Promise<void>;
   setAppMode: (mode: AppMode) => void;
   setBooksTab: (tab: BooksTab) => void;
   setSearchQuery: (query: string) => void;
@@ -56,6 +74,10 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   items: [],
   collections: [],
   books: [],
+  goals: [],
+  taskProjects: [],
+  tasks: [],
+  activeProjectId: localStorage.getItem("cosmos-task-project"),
   appMode: (localStorage.getItem("cosmos-mode") as AppMode) || "moodboard",
   booksTab: "library",
   searchQuery: "",
@@ -72,7 +94,20 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       const path = await commands.getVaultPath();
       if (path) {
         const index = await commands.openVault(path);
-        set({ vaultPath: path, items: index.items, collections: index.collections || [], books: index.books || [] });
+        const taskProjects = index.taskProjects || [];
+        const saved = get().activeProjectId;
+        set({
+          vaultPath: path,
+          items: index.items,
+          collections: index.collections || [],
+          books: index.books || [],
+          goals: index.goals || [],
+          taskProjects,
+          tasks: index.tasks || [],
+          activeProjectId: taskProjects.some((p) => p.id === saved)
+            ? saved
+            : taskProjects[0]?.id ?? null,
+        });
       }
     } catch (e) {
       console.error("Failed to load vault:", e);
@@ -84,13 +119,23 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   createNewVault: async (path: string) => {
     await commands.createVault(path);
     await commands.setVaultPath(path);
-    set({ vaultPath: path, items: [], collections: [], books: [] });
+    set({ vaultPath: path, items: [], collections: [], books: [], goals: [], taskProjects: [], tasks: [], activeProjectId: null });
   },
 
   openExistingVault: async (path: string) => {
     const index = await commands.openVault(path);
     await commands.setVaultPath(path);
-    set({ vaultPath: path, items: index.items, collections: index.collections || [], books: index.books || [] });
+    const taskProjects = index.taskProjects || [];
+    set({
+      vaultPath: path,
+      items: index.items,
+      collections: index.collections || [],
+      books: index.books || [],
+      goals: index.goals || [],
+      taskProjects,
+      tasks: index.tasks || [],
+      activeProjectId: taskProjects[0]?.id ?? null,
+    });
   },
 
   addImage: async (sourcePath: string) => {
@@ -369,6 +414,161 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     if (!vaultPath) return;
     await commands.deleteBook(vaultPath, id);
     set((s) => ({ books: s.books.filter((b) => b.id !== id) }));
+  },
+
+  // Local-only move while dragging; persistBookOrder saves on drop
+  moveBook: (draggedId, overId) => {
+    set((s) => {
+      const from = s.books.findIndex((b) => b.id === draggedId);
+      const to = s.books.findIndex((b) => b.id === overId);
+      if (from === -1 || to === -1 || from === to) return {};
+      const next = [...s.books];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return { books: next };
+    });
+  },
+
+  persistBookOrder: async () => {
+    const { vaultPath, books } = get();
+    if (!vaultPath) return;
+    await commands.reorderBooks(vaultPath, books.map((b) => b.id));
+  },
+
+  addGoal: async (title, category, progressCurrent, progressTarget) => {
+    const { vaultPath } = get();
+    if (!vaultPath) return;
+    const goal = await commands.addGoal(
+      vaultPath,
+      title,
+      category,
+      new Date().getFullYear(),
+      progressCurrent,
+      progressTarget,
+    );
+    set((s) => ({ goals: [...s.goals, goal] }));
+  },
+
+  updateGoal: async (id, changes) => {
+    const { vaultPath, goals } = get();
+    if (!vaultPath) return;
+    const goal = goals.find((g) => g.id === id);
+    if (!goal) return;
+    const updated = { ...goal, ...changes };
+    await commands.updateGoal(vaultPath, updated);
+    set((s) => ({
+      goals: s.goals.map((g) => (g.id === id ? updated : g)),
+    }));
+  },
+
+  removeGoal: async (id) => {
+    const { vaultPath } = get();
+    if (!vaultPath) return;
+    await commands.deleteGoal(vaultPath, id);
+    set((s) => ({ goals: s.goals.filter((g) => g.id !== id) }));
+  },
+
+  addTaskProject: async (name, color) => {
+    const { vaultPath } = get();
+    if (!vaultPath) return;
+    const project = await commands.addTaskProject(vaultPath, name, color);
+    localStorage.setItem("cosmos-task-project", project.id);
+    set((s) => ({
+      taskProjects: [...s.taskProjects, project],
+      activeProjectId: project.id,
+    }));
+  },
+
+  removeTaskProject: async (id) => {
+    const { vaultPath } = get();
+    if (!vaultPath) return;
+    await commands.deleteTaskProject(vaultPath, id);
+    set((s) => {
+      const taskProjects = s.taskProjects.filter((p) => p.id !== id);
+      const activeProjectId =
+        s.activeProjectId === id ? taskProjects[0]?.id ?? null : s.activeProjectId;
+      if (activeProjectId) localStorage.setItem("cosmos-task-project", activeProjectId);
+      else localStorage.removeItem("cosmos-task-project");
+      return {
+        taskProjects,
+        tasks: s.tasks.filter((t) => t.projectId !== id),
+        activeProjectId,
+      };
+    });
+  },
+
+  setActiveProject: (id) => {
+    if (id) localStorage.setItem("cosmos-task-project", id);
+    else localStorage.removeItem("cosmos-task-project");
+    set({ activeProjectId: id });
+  },
+
+  addTask: async (title, description, status, priority, effort) => {
+    const { vaultPath, activeProjectId } = get();
+    if (!vaultPath || !activeProjectId) return;
+    const task = await commands.addTask(
+      vaultPath,
+      activeProjectId,
+      title,
+      description,
+      status,
+      priority,
+      effort,
+    );
+    set((s) => ({ tasks: [...s.tasks, task] }));
+  },
+
+  updateTask: async (id, changes) => {
+    const { vaultPath, tasks } = get();
+    if (!vaultPath) return;
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+    const updated = { ...task, ...changes };
+    await commands.updateTask(vaultPath, updated);
+    set((s) => ({
+      tasks: s.tasks.map((t) => (t.id === id ? updated : t)),
+    }));
+  },
+
+  removeTask: async (id) => {
+    const { vaultPath } = get();
+    if (!vaultPath) return;
+    await commands.deleteTask(vaultPath, id);
+    set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
+  },
+
+  // Local-only move while dragging; persistTaskDrag saves on drop.
+  // Dragging over a card adopts that card's column (kanban semantics).
+  moveTask: (draggedId, overId) => {
+    set((s) => {
+      const from = s.tasks.findIndex((t) => t.id === draggedId);
+      const to = s.tasks.findIndex((t) => t.id === overId);
+      if (from === -1 || to === -1 || from === to) return {};
+      const overStatus = s.tasks[to].status;
+      const next = [...s.tasks];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, { ...moved, status: overStatus });
+      return { tasks: next };
+    });
+  },
+
+  moveTaskToStatus: (draggedId, status) => {
+    set((s) => {
+      const task = s.tasks.find((t) => t.id === draggedId);
+      if (!task || task.status === status) return {};
+      // Move to the end of the target column (end of array keeps column order stable)
+      const rest = s.tasks.filter((t) => t.id !== draggedId);
+      return { tasks: [...rest, { ...task, status }] };
+    });
+  },
+
+  persistTaskDrag: async (draggedId) => {
+    const { vaultPath, tasks } = get();
+    if (!vaultPath) return;
+    const dragged = tasks.find((t) => t.id === draggedId);
+    // Status may have changed while dragging across columns
+    if (dragged) await commands.updateTask(vaultPath, dragged);
+    await commands.reorderTasks(vaultPath, tasks.map((t) => t.id));
   },
 
   setAppMode: (mode: AppMode) => {

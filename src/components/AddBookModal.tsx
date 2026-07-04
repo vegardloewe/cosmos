@@ -9,7 +9,7 @@ interface AddBookModalProps {
 }
 
 const STATUS_OPTIONS: { label: string; value: BookStatus }[] = [
-  { label: "Currently reading", value: "reading" },
+  { label: "Reading", value: "reading" },
   { label: "Read", value: "read" },
   { label: "Want to read", value: "want" },
 ];
@@ -23,6 +23,8 @@ export function AddBookModal({ onClose }: AddBookModalProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [selected, setSelected] = useState<BookSearchResult | null>(null);
+  const [title, setTitle] = useState("");
+  const [author, setAuthor] = useState("");
   const [status, setStatus] = useState<BookStatus>(booksTab === "want" ? "want" : "reading");
   const [yearRead, setYearRead] = useState(String(new Date().getFullYear()));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,14 +60,26 @@ export function AddBookModal({ onClose }: AddBookModalProps) {
     };
   }, [query]);
 
+  const selectBook = (result: BookSearchResult) => {
+    setSelected(result);
+    setTitle(result.title);
+    setAuthor(result.author ?? "");
+  };
+
+  const selectManual = () => {
+    setSelected({ title: query.trim() });
+    setTitle(query.trim());
+    setAuthor("");
+  };
+
   const handleAdd = async () => {
-    if (!selected) return;
+    if (!selected || !title.trim()) return;
     setIsSubmitting(true);
     try {
       const year = status === "read" ? parseInt(yearRead, 10) : NaN;
       await addBook(
-        selected.title,
-        selected.author ?? null,
+        title.trim(),
+        author.trim() || null,
         selected.coverUrl ?? null,
         status,
         Number.isNaN(year) ? null : year,
@@ -88,7 +102,7 @@ export function AddBookModal({ onClose }: AddBookModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         {selected ? (
-          <div className="p-6 flex flex-col gap-5">
+          <div className="p-6 flex flex-col gap-4">
             <button
               onClick={() => setSelected(null)}
               className="flex items-center gap-2 text-sm text-text-muted hover:text-text transition-colors cursor-pointer self-start"
@@ -101,7 +115,7 @@ export function AddBookModal({ onClose }: AddBookModalProps) {
               {selected.coverUrl ? (
                 <img
                   src={selected.coverUrl}
-                  alt={selected.title}
+                  alt={title}
                   className="w-20 aspect-[2/3] object-cover rounded-lg shadow-lg shrink-0"
                 />
               ) : (
@@ -109,13 +123,25 @@ export function AddBookModal({ onClose }: AddBookModalProps) {
                   <BookOpen size={20} className="text-text-muted" />
                 </div>
               )}
-              <div className="min-w-0">
-                <p className="font-semibold text-text">{selected.title}</p>
-                {selected.author && (
-                  <p className="text-sm text-text-muted mt-1">{selected.author}</p>
-                )}
+              <div className="flex-1 min-w-0 flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Title"
+                  className="w-full px-3 py-2 bg-bg rounded-lg text-sm text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
+                />
+                <input
+                  type="text"
+                  value={author}
+                  onChange={(e) => setAuthor(e.target.value)}
+                  placeholder="Author (optional)"
+                  className="w-full px-3 py-2 bg-bg rounded-lg text-sm text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
+                />
                 {selected.firstPublishYear && (
-                  <p className="text-xs text-text-muted mt-1">{selected.firstPublishYear}</p>
+                  <p className="text-xs text-text-muted">
+                    First published {selected.firstPublishYear}
+                  </p>
                 )}
               </div>
             </div>
@@ -148,7 +174,7 @@ export function AddBookModal({ onClose }: AddBookModalProps) {
 
             <button
               onClick={handleAdd}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !title.trim()}
               className="w-full py-3 bg-white text-bg font-semibold rounded-xl hover:bg-white/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "Adding..." : "Add Book"}
@@ -167,7 +193,7 @@ export function AddBookModal({ onClose }: AddBookModalProps) {
               />
             </div>
 
-            <div className="h-80 overflow-y-auto px-2 pb-2">
+            <div className="h-72 overflow-y-auto px-2">
               {isSearching && (
                 <p className="px-4 py-3 text-sm text-text-muted">Searching...</p>
               )}
@@ -176,26 +202,16 @@ export function AddBookModal({ onClose }: AddBookModalProps) {
                   <BookOpen size={32} strokeWidth={1.5} className="text-border" />
                   <p className="text-sm text-text-muted">
                     {hasSearched
-                      ? "No books found — try a different search"
+                      ? "No books found — try a different search or add it manually"
                       : "Search Open Library to add a book"}
                   </p>
-                  {hasSearched && query.trim() && (
-                    <button
-                      onClick={() =>
-                        setSelected({ title: query.trim() })
-                      }
-                      className="mt-2 text-sm text-text underline underline-offset-2 cursor-pointer"
-                    >
-                      Add "{query.trim()}" without a cover
-                    </button>
-                  )}
                 </div>
               )}
               {!isSearching &&
                 results.map((result, i) => (
                   <button
                     key={i}
-                    onClick={() => setSelected(result)}
+                    onClick={() => selectBook(result)}
                     className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-[#18191A] transition-colors cursor-pointer text-left"
                   >
                     {result.coverUrl ? (
@@ -218,6 +234,16 @@ export function AddBookModal({ onClose }: AddBookModalProps) {
                     </div>
                   </button>
                 ))}
+            </div>
+
+            {/* Always available: add without picking a search result */}
+            <div className="border-t border-border p-3">
+              <button
+                onClick={selectManual}
+                className="w-full py-2 rounded-xl text-sm text-[#A8B4C6] hover:text-text hover:bg-[#18191A] transition-colors cursor-pointer"
+              >
+                {query.trim() ? `Add "${query.trim()}" manually` : "Add manually"}
+              </button>
             </div>
           </div>
         )}

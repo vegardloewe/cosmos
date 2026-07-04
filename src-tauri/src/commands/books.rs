@@ -149,10 +149,29 @@ fn add_book_impl(
     };
 
     let mut index = read_index(&vault)?;
-    index.books.push(book.clone());
+    // Newest first: array order is the display order
+    index.books.insert(0, book.clone());
     write_index(&vault, &index)?;
 
     Ok(book)
+}
+
+/// Persist a manual ordering: sort the books array by the given id list
+fn reorder_books_impl(vault: String, ids: Vec<String>) -> Result<(), String> {
+    use std::collections::HashMap;
+
+    let positions: HashMap<&str, usize> = ids
+        .iter()
+        .enumerate()
+        .map(|(i, id)| (id.as_str(), i))
+        .collect();
+
+    let mut index = read_index(&vault)?;
+    index
+        .books
+        .sort_by_key(|b| positions.get(b.id.as_str()).copied().unwrap_or(usize::MAX));
+    write_index(&vault, &index)?;
+    Ok(())
 }
 
 fn update_book_impl(vault: String, book: Book) -> Result<(), String> {
@@ -245,6 +264,11 @@ pub async fn add_book(
 #[tauri::command]
 pub async fn update_book(vault: String, book: Book) -> Result<(), String> {
     super::run_blocking(move || update_book_impl(vault, book)).await
+}
+
+#[tauri::command]
+pub async fn reorder_books(vault: String, ids: Vec<String>) -> Result<(), String> {
+    super::run_blocking(move || reorder_books_impl(vault, ids)).await
 }
 
 #[tauri::command]

@@ -14,6 +14,7 @@
       {
         "title": "Cosmos",
         "titleBarStyle": "Overlay",
+        "dragDropEnabled": false,
         "hiddenTitle": true,
         "width": 1200,
         "height": 800,

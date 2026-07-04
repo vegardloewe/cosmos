@@ -1,7 +1,7 @@
 mod models;
 mod commands;
 
-use commands::{vault, items, links, ai, books, capture};
+use commands::{vault, items, links, ai, books, capture, goals, tasks};
 use tauri_plugin_global_shortcut::ShortcutState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -47,8 +47,18 @@ pub fn run() {
             books::search_books,
             books::add_book,
             books::update_book,
+            books::reorder_books,
             books::set_book_cover,
             books::delete_book,
+            goals::add_goal,
+            goals::update_goal,
+            goals::delete_goal,
+            tasks::add_task_project,
+            tasks::delete_task_project,
+            tasks::add_task,
+            tasks::update_task,
+            tasks::delete_task,
+            tasks::reorder_tasks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

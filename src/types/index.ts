@@ -49,9 +49,46 @@ export interface BookSearchResult {
   firstPublishYear?: number;
 }
 
+export interface Goal {
+  id: string;
+  title: string;
+  category: string;
+  achieved: boolean;
+  progressCurrent?: number;
+  progressTarget?: number;
+  year: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TaskStatus = "backlog" | "in_progress" | "done";
+export type TaskPriority = "urgent" | "high" | "medium" | "low";
+export type TaskEffort = "s" | "m" | "l" | "xl";
+
+export interface TaskProject {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface Task {
+  id: string;
+  projectId: string;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  priority?: TaskPriority;
+  effort?: TaskEffort;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface VaultIndex {
   version: number;
   items: BoardItem[];
   collections: Collection[];
   books?: Book[];
+  goals?: Goal[];
+  taskProjects?: TaskProject[];
+  tasks?: Task[];
 }

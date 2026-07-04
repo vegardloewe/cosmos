@@ -4,6 +4,8 @@ pub mod links;
 pub mod ai;
 pub mod books;
 pub mod capture;
+pub mod goals;
+pub mod tasks;
 
 /// Run blocking work (fs, network) on the thread pool. Sync commands execute
 /// on the main thread in Tauri v2, so anything slow must go through this to

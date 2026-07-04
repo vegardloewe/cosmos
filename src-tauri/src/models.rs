@@ -48,7 +48,44 @@ pub struct Book {
     pub updated_at: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Goal {
+    pub id: String,
+    pub title: String,
+    pub category: String,
+    pub achieved: bool,
+    pub progress_current: Option<f64>,
+    pub progress_target: Option<f64>,
+    pub year: i32,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskProject {
+    pub id: String,
+    pub name: String,
+    pub color: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Task {
+    pub id: String,
+    pub project_id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub status: String, // "backlog" | "in_progress" | "done"
+    pub priority: Option<String>, // "urgent" | "high" | "medium" | "low"
+    pub effort: Option<String>,   // "s" | "m" | "l" | "xl"
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct VaultIndex {
     pub version: u32,
     pub items: Vec<BoardItem>,
@@ -56,6 +93,13 @@ pub struct VaultIndex {
     pub collections: Vec<Collection>,
     #[serde(default)]
     pub books: Vec<Book>,
+    #[serde(default)]
+    pub goals: Vec<Goal>,
+    // Alias keeps index files written before the camelCase rename loading
+    #[serde(default, alias = "task_projects")]
+    pub task_projects: Vec<TaskProject>,
+    #[serde(default)]
+    pub tasks: Vec<Task>,
 }
 
 impl VaultIndex {
@@ -65,6 +109,9 @@ impl VaultIndex {
             items: Vec::new(),
             collections: Vec::new(),
             books: Vec::new(),
+            goals: Vec::new(),
+            task_projects: Vec::new(),
+            tasks: Vec::new(),
         }
     }
 }
