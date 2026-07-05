@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Book, BookSearchResult, BookStatus, BoardItem, Collection, Goal, Task, TaskEffort, TaskPriority, TaskProject, TaskStatus, VaultIndex } from "../types";
+import type { Book, BookSearchResult, BookStatus, BoardItem, Collection, Goal, NoteEntry, Task, TaskEffort, TaskPriority, TaskProject, TaskStatus, VaultIndex } from "../types";
 
 export function createVault(path: string): Promise<void> {
   return invoke("create_vault", { path });
@@ -157,4 +157,44 @@ export function deleteTask(vault: string, id: string): Promise<void> {
 
 export function reorderTasks(vault: string, ids: string[]): Promise<void> {
   return invoke("reorder_tasks", { vault, ids });
+}
+
+export function listNotes(vault: string): Promise<NoteEntry[]> {
+  return invoke("list_notes", { vault });
+}
+
+export function readNote(vault: string, path: string): Promise<string> {
+  return invoke("read_note", { vault, path });
+}
+
+export function writeNote(vault: string, path: string, content: string): Promise<void> {
+  return invoke("write_note", { vault, path, content });
+}
+
+export function createNote(vault: string, dir: string): Promise<string> {
+  return invoke("create_note", { vault, dir });
+}
+
+export function createNoteWith(vault: string, dir: string, name: string, content: string): Promise<string> {
+  return invoke("create_note_with", { vault, dir, name, content });
+}
+
+export function createNoteFolder(vault: string, dir: string): Promise<string> {
+  return invoke("create_note_folder", { vault, dir });
+}
+
+export function renameNotePath(vault: string, path: string, newName: string): Promise<string> {
+  return invoke("rename_note_path", { vault, path, newName });
+}
+
+export function deleteNotePath(vault: string, path: string): Promise<void> {
+  return invoke("delete_note_path", { vault, path });
+}
+
+export function setNoteOrder(vault: string, dir: string, names: string[]): Promise<void> {
+  return invoke("set_note_order", { vault, dir, names });
+}
+
+export function moveNotePath(vault: string, path: string, targetDir: string): Promise<string> {
+  return invoke("move_note_path", { vault, path, targetDir });
 }

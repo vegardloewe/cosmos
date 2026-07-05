@@ -7,8 +7,20 @@ import { TaskDetail } from "./TaskDetail";
 import { EffortPill, PriorityIcon, STATUSES, StatusIcon } from "./task-meta";
 import type { Task, TaskStatus } from "../types";
 
+function completedToday(task: Task): boolean {
+  if (!task.completedAt) return false;
+  const done = new Date(Number(task.completedAt));
+  const now = new Date();
+  return (
+    done.getFullYear() === now.getFullYear() &&
+    done.getMonth() === now.getMonth() &&
+    done.getDate() === now.getDate()
+  );
+}
+
 function TaskCard({ task, onEdit }: { task: Task; onEdit: (task: Task) => void }) {
   const removeTask = useBoardStore((s) => s.removeTask);
+  const transferTaskToNote = useBoardStore((s) => s.transferTaskToNote);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -64,6 +76,15 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (task: Task) => void }
           <button
             onClick={() => {
               setMenu(null);
+              transferTaskToNote(task.id);
+            }}
+            className="w-full px-4 py-2.5 text-sm text-[#A8B4C6] hover:bg-[#18191A] transition-colors cursor-pointer text-left"
+          >
+            Turn into note
+          </button>
+          <button
+            onClick={() => {
+              setMenu(null);
               removeTask(task.id);
             }}
             className="w-full px-4 py-2.5 text-sm text-red-400 hover:bg-[#18191A] transition-colors cursor-pointer text-left"
@@ -90,6 +111,7 @@ export function TasksView() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [addingToStatus, setAddingToStatus] = useState<TaskStatus | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
+  const [showOldTasks, setShowOldTasks] = useState(false);
 
   const projectTasks = useMemo(
     () => tasks.filter((t) => t.projectId === activeProjectId),
@@ -97,13 +119,20 @@ export function TasksView() {
   );
 
   // Array order is the display order within each column (drag & drop reorders it)
+  // Done only shows today's completions unless "Show old tasks" is on
   const columns = useMemo(
     () =>
-      STATUSES.map((status) => ({
-        ...status,
-        tasks: projectTasks.filter((t) => t.status === status.value),
-      })),
-    [projectTasks],
+      STATUSES.map((status) => {
+        const all = projectTasks.filter((t) => t.status === status.value);
+        if (status.value !== "done") return { ...status, tasks: all, oldCount: 0 };
+        const oldCount = all.filter((t) => !completedToday(t)).length;
+        return {
+          ...status,
+          tasks: showOldTasks ? all : all.filter(completedToday),
+          oldCount,
+        };
+      }),
+    [projectTasks, showOldTasks],
   );
 
   const startDrag = (id: string) => {
@@ -223,6 +252,17 @@ export function TasksView() {
                   <TaskCard task={task} onEdit={setEditingTask} />
                 </div>
               ))}
+
+              {column.value === "done" && column.oldCount > 0 && (
+                <button
+                  onClick={() => setShowOldTasks((v) => !v)}
+                  className="mt-1 px-2 py-1.5 rounded-md text-xs text-text-muted hover:text-text hover:bg-surface transition-colors cursor-pointer text-left"
+                >
+                  {showOldTasks
+                    ? "Hide old tasks"
+                    : `Show old tasks (${column.oldCount})`}
+                </button>
+              )}
             </div>
           </div>
         ))}

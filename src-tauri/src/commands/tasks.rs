@@ -46,6 +46,7 @@ fn add_task_impl(
         project_id,
         title,
         description,
+        completed_at: if status == "done" { Some(now.clone()) } else { None },
         status,
         priority,
         effort,

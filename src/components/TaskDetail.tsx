@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { FileText, X } from "lucide-react";
 import { useBoardStore } from "../stores/board-store";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { EFFORTS, PRIORITIES, STATUSES, EffortPill, PriorityIcon, StatusIcon } from "./task-meta";
@@ -91,6 +91,7 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
   const taskProjects = useBoardStore((s) => s.taskProjects);
   const updateTask = useBoardStore((s) => s.updateTask);
   const removeTask = useBoardStore((s) => s.removeTask);
+  const transferTaskToNote = useBoardStore((s) => s.transferTaskToNote);
 
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
@@ -265,7 +266,22 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
             <p className="px-2 text-xs text-[#5C626B]">Created {formatDate(task.createdAt)}</p>
           </div>
 
-          <div className="p-3 border-t border-border">
+          <div className="p-3 border-t border-border flex flex-col gap-2">
+            <button
+              onClick={async () => {
+                // Description edits normally save on blur — flush them first
+                // so the note gets the latest text
+                if (description !== (task.description ?? "")) {
+                  await updateTask(task.id, { description: description || undefined });
+                }
+                await transferTaskToNote(task.id);
+                onClose();
+              }}
+              className="w-full flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-[#A8B4C6] bg-[#18191A] rounded-lg hover:text-text hover:bg-[#1F2123] transition-colors cursor-pointer"
+            >
+              <FileText size={14} />
+              Turn into note
+            </button>
             <button
               onClick={() => {
                 removeTask(task.id);

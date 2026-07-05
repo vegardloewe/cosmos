@@ -61,7 +61,7 @@ export interface Goal {
   updatedAt: string;
 }
 
-export type TaskStatus = "backlog" | "in_progress" | "done";
+export type TaskStatus = "backlog" | "todo" | "in_progress" | "done";
 export type TaskPriority = "urgent" | "high" | "medium" | "low";
 export type TaskEffort = "s" | "m" | "l" | "xl";
 
@@ -79,8 +79,16 @@ export interface Task {
   status: TaskStatus;
   priority?: TaskPriority;
   effort?: TaskEffort;
+  completedAt?: string; // millis; set while status is "done"
   createdAt: string;
   updatedAt: string;
+}
+
+export interface NoteEntry {
+  name: string;
+  path: string; // relative to the Notes root
+  isDir: boolean;
+  children: NoteEntry[];
 }
 
 export interface VaultIndex {

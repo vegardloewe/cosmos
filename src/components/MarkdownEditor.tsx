@@ -201,11 +201,20 @@ export function MarkdownEditor({
     }
   }, [autoFocus]);
 
+  // A caret can't render inside an element that only contains an <input>,
+  // so freshly created checkboxes get a zero-width space to anchor it.
+  // The ZWSP is stripped back out when serializing to markdown.
+  const makeCheckbox = (): [HTMLInputElement, Text] => {
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    return [cb, document.createTextNode("\u200B")];
+  };
+
   // On every edit, convert HTML → markdown and notify parent
   const syncToMarkdown = useCallback(() => {
     const el = editorRef.current;
     if (!el) return;
-    const md = htmlToMd(el).replace(/\n{3,}/g, "\n\n").trim();
+    const md = htmlToMd(el).replace(/\u200B/g, "").replace(/\n{3,}/g, "\n\n").trim();
     isInternalChange.current = true;
     onChange(md);
   }, [onChange]);
@@ -214,9 +223,119 @@ export function MarkdownEditor({
     syncToMarkdown();
   }, [syncToMarkdown]);
 
+  /* ── Notion-style block shortcuts (typed at line start + space) ── */
+
+  // "# " → heading, "- " → list, "[] " → checkbox, "> " → quote.
+  // Returns true if a transform happened (the caller swallows the space).
+  const applyBlockShortcut = (): boolean => {
+    const editor = editorRef.current;
+    const sel = window.getSelection();
+    if (!editor || !sel || !sel.isCollapsed || !sel.anchorNode) return false;
+    if (!editor.contains(sel.anchorNode)) return false;
+
+    const range = sel.getRangeAt(0);
+    const container = range.startContainer;
+    const el =
+      container.nodeType === Node.TEXT_NODE
+        ? container.parentElement
+        : (container as HTMLElement);
+    const block = el?.closest("p, div, h1, h2, h3, li, blockquote") as HTMLElement | null;
+    if (!block || block === editor || !editor.contains(block)) return false;
+
+    // Text between the start of the block and the caret — the would-be marker
+    const preRange = document.createRange();
+    preRange.selectNodeContents(block);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    const marker = preRange.toString();
+
+    const setCaret = (target: Node, offset = 0) => {
+      const r = document.createRange();
+      r.setStart(target, offset);
+      r.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    };
+
+    // Inside a list item: "[]" turns it into a checklist item
+    if (block.tagName === "LI") {
+      if (
+        (marker === "[]" || marker === "[ ]") &&
+        !block.querySelector('input[type="checkbox"]')
+      ) {
+        preRange.deleteContents();
+        const [cb, anchor] = makeCheckbox();
+        block.insertBefore(cb, block.firstChild);
+        cb.after(anchor);
+        setCaret(anchor, 1);
+        syncToMarkdown();
+        return true;
+      }
+      return false;
+    }
+
+    if (block.tagName !== "P" && block.tagName !== "DIV") return false;
+
+    const moveContentInto = (target: HTMLElement) => {
+      while (block.firstChild) target.appendChild(block.firstChild);
+      if (!target.textContent && !target.querySelector("br")) {
+        target.innerHTML = "<br>";
+      }
+    };
+
+    if (/^#{1,3}$/.test(marker)) {
+      preRange.deleteContents();
+      const heading = document.createElement(`h${marker.length}`);
+      moveContentInto(heading);
+      block.replaceWith(heading);
+      setCaret(heading, 0);
+      syncToMarkdown();
+      return true;
+    }
+
+    if (marker === "-" || marker === "*" || marker === "[]" || marker === "[ ]" || marker === "-[]" || marker === "-[ ]") {
+      const isChecklist = marker.includes("[");
+      preRange.deleteContents();
+      const ul = document.createElement("ul");
+      const li = document.createElement("li");
+      ul.appendChild(li);
+      moveContentInto(li);
+      let anchor: Text | null = null;
+      if (isChecklist) {
+        const [cb, zwsp] = makeCheckbox();
+        anchor = zwsp;
+        li.insertBefore(zwsp, li.firstChild);
+        li.insertBefore(cb, zwsp);
+      }
+      block.replaceWith(ul);
+      if (anchor) setCaret(anchor, 1);
+      else setCaret(li, 0);
+      syncToMarkdown();
+      return true;
+    }
+
+    if (marker === ">") {
+      preRange.deleteContents();
+      const quote = document.createElement("blockquote");
+      const p = document.createElement("p");
+      quote.appendChild(p);
+      moveContentInto(p);
+      block.replaceWith(quote);
+      setCaret(p, 0);
+      syncToMarkdown();
+      return true;
+    }
+
+    return false;
+  };
+
   /* ── Keyboard shortcuts ─────────────────────────────── */
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === " " && applyBlockShortcut()) {
+      e.preventDefault();
+      return;
+    }
+
     // Cmd+B → bold
     if ((e.metaKey || e.ctrlKey) && e.key === "b") {
       e.preventDefault();
@@ -251,8 +370,8 @@ export function MarkdownEditor({
           const liRange = document.createRange();
           liRange.selectNodeContents(li);
           liRange.setEnd(range.startContainer, range.startOffset);
-          const textBefore = liRange.toString();
-          // Also account for checkbox — cursor right after checkbox counts as "start"
+          // The ZWSP caret anchor after a checkbox still counts as "start"
+          const textBefore = liRange.toString().replace(/\u200B/g, "");
           const checkbox = li.querySelector('input[type="checkbox"]');
           if (textBefore === "" || (checkbox && textBefore === "")) {
             e.preventDefault();
@@ -286,6 +405,38 @@ export function MarkdownEditor({
       }
     }
 
+    // Enter at the end of a heading or quote → continue with a plain
+    // paragraph (Notion-style) instead of extending the block
+    if (e.key === "Enter" && !e.shiftKey) {
+      const sel = window.getSelection();
+      if (sel?.anchorNode && sel.isCollapsed && editorRef.current?.contains(sel.anchorNode)) {
+        const el =
+          sel.anchorNode.nodeType === Node.TEXT_NODE
+            ? sel.anchorNode.parentElement
+            : (sel.anchorNode as HTMLElement);
+        const heavyBlock = el?.closest("h1, h2, h3, blockquote");
+        if (heavyBlock && editorRef.current.contains(heavyBlock)) {
+          const range = sel.getRangeAt(0);
+          const tail = document.createRange();
+          tail.selectNodeContents(heavyBlock);
+          tail.setStart(range.endContainer, range.endOffset);
+          if (tail.toString() === "") {
+            e.preventDefault();
+            const p = document.createElement("p");
+            p.innerHTML = "<br>";
+            heavyBlock.after(p);
+            const newRange = document.createRange();
+            newRange.setStart(p, 0);
+            newRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+            syncToMarkdown();
+            return;
+          }
+        }
+      }
+    }
+
     // Enter inside a list → browser handles new <li> automatically.
     // But if the <li> is empty, break out of the list.
     if (e.key === "Enter") {
@@ -294,6 +445,29 @@ export function MarkdownEditor({
         const li =
           (sel.anchorNode as HTMLElement).closest?.("li") ||
           sel.anchorNode.parentElement?.closest("li");
+        // Enter on a non-empty checklist item → the next item gets a
+        // checkbox too (the browser would insert a plain bullet)
+        if (li && li.textContent?.trim() && li.querySelector('input[type="checkbox"]')) {
+          e.preventDefault();
+          const range = sel.getRangeAt(0);
+          const tail = document.createRange();
+          tail.selectNodeContents(li);
+          tail.setStart(range.endContainer, range.endOffset);
+          const rest = tail.extractContents();
+          const newLi = document.createElement("li");
+          const [cb, anchor] = makeCheckbox();
+          newLi.appendChild(cb);
+          newLi.appendChild(anchor);
+          newLi.appendChild(rest);
+          li.after(newLi);
+          const newRange = document.createRange();
+          newRange.setStart(anchor, 1);
+          newRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+          syncToMarkdown();
+          return;
+        }
         if (li && !li.textContent?.trim()) {
           e.preventDefault();
           const ul = li.parentElement;
@@ -382,9 +556,17 @@ export function MarkdownEditor({
           (sel?.anchorNode as HTMLElement)?.closest?.("li") ||
           sel?.anchorNode?.parentElement?.closest("li");
         if (li && !li.querySelector('input[type="checkbox"]')) {
-          const cb = document.createElement("input");
-          cb.type = "checkbox";
-          li.insertBefore(cb, li.firstChild);
+          const [cb, anchor] = makeCheckbox();
+          li.insertBefore(anchor, li.firstChild);
+          li.insertBefore(cb, anchor);
+          // An empty item needs the caret parked on the anchor
+          if (!li.textContent?.replace(/\u200B/g, "")) {
+            const r = document.createRange();
+            r.setStart(anchor, 1);
+            r.collapse(true);
+            sel?.removeAllRanges();
+            sel?.addRange(r);
+          }
         }
         break;
       }

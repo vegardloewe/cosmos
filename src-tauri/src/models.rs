@@ -77,9 +77,10 @@ pub struct Task {
     pub project_id: String,
     pub title: String,
     pub description: Option<String>,
-    pub status: String, // "backlog" | "in_progress" | "done"
+    pub status: String, // "backlog" | "todo" | "in_progress" | "done"
     pub priority: Option<String>, // "urgent" | "high" | "medium" | "low"
     pub effort: Option<String>,   // "s" | "m" | "l" | "xl"
+    pub completed_at: Option<String>, // millis; set while status is "done"
     pub created_at: String,
     pub updated_at: String,
 }

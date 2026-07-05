@@ -43,6 +43,7 @@ export function TasksToolbar() {
   return (
     <>
       <div
+        data-tauri-drag-region
         className={`flex-1 items-center justify-end gap-2 relative z-10 ${
           appMode === "tasks" ? "flex" : "hidden"
         }`}

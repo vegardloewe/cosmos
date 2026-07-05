@@ -2,6 +2,7 @@ import type { TaskEffort, TaskPriority, TaskStatus } from "../types";
 
 export const STATUSES: { value: TaskStatus; label: string }[] = [
   { value: "backlog", label: "Backlog" },
+  { value: "todo", label: "To do" },
   { value: "in_progress", label: "In Progress" },
   { value: "done", label: "Done" },
 ];
@@ -20,7 +21,7 @@ export const EFFORTS: { value: TaskEffort; label: string }[] = [
   { value: "xl", label: "XL" },
 ];
 
-// Linear-style status dots: dashed circle → half-filled circle → checked circle
+// Linear-style status dots: dashed → empty → half-filled → checked circle
 export function StatusIcon({ status, size = 14 }: { status: TaskStatus; size?: number }) {
   if (status === "backlog") {
     return (
@@ -30,6 +31,13 @@ export function StatusIcon({ status, size = 14 }: { status: TaskStatus; size?: n
           fill="none" stroke="#5C626B" strokeWidth="1.5"
           strokeDasharray="1.8 1.8"
         />
+      </svg>
+    );
+  }
+  if (status === "todo") {
+    return (
+      <svg width={size} height={size} viewBox="0 0 14 14" className="shrink-0">
+        <circle cx="7" cy="7" r="5.5" fill="none" stroke="#8A8F98" strokeWidth="1.5" />
       </svg>
     );
   }

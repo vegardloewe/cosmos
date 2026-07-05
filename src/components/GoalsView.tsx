@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Plus, Target } from "lucide-react";
+import { Plus, Target } from "lucide-react";
 import { useBoardStore } from "../stores/board-store";
+import { Checkbox } from "./Checkbox";
 import { GoalModal } from "./GoalModal";
 import type { Goal } from "../types";
 
@@ -46,16 +47,10 @@ function GoalRow({ goal, onEdit }: { goal: Goal; onEdit: (goal: Goal) => void })
           setMenu({ x: e.clientX, y: e.clientY });
         }}
       >
-        <button
-          onClick={() => updateGoal(goal.id, { achieved: !goal.achieved })}
-          className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors cursor-pointer ${
-            goal.achieved
-              ? "bg-blue border-blue"
-              : "border-[#5C626B] hover:border-white"
-          }`}
-        >
-          {goal.achieved && <Check size={12} strokeWidth={3} className="text-white" />}
-        </button>
+        <Checkbox
+          checked={goal.achieved}
+          onToggle={() => updateGoal(goal.id, { achieved: !goal.achieved })}
+        />
 
         <span
           className={`flex-1 min-w-0 truncate text-[15px] ${

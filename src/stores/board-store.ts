@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import type { BoardItem, Book, BookStatus, Collection, Goal, ItemType, Task, TaskEffort, TaskPriority, TaskProject, TaskStatus } from "../types";
+import type { BoardItem, Book, BookStatus, Collection, Goal, ItemType, NoteEntry, Task, TaskEffort, TaskPriority, TaskProject, TaskStatus } from "../types";
 import * as commands from "../lib/tauri-commands";
 
-export type AppMode = "moodboard" | "books" | "goals" | "tasks";
+export type AppMode = "moodboard" | "books" | "goals" | "tasks" | "notes";
 export type BooksTab = "library" | "want";
 
 interface BoardState {
@@ -14,6 +14,8 @@ interface BoardState {
   taskProjects: TaskProject[];
   tasks: Task[];
   activeProjectId: string | null;
+  noteTree: NoteEntry[];
+  selectedNotePath: string | null;
   appMode: AppMode;
   booksTab: BooksTab;
   searchQuery: string;
@@ -61,12 +63,29 @@ interface BoardState {
   moveTask: (draggedId: string, overId: string) => void;
   moveTaskToStatus: (draggedId: string, status: TaskStatus) => void;
   persistTaskDrag: (draggedId: string) => Promise<void>;
+  transferTaskToNote: (id: string) => Promise<void>;
+  loadNoteTree: () => Promise<void>;
+  selectNote: (path: string | null) => void;
+  createNote: (dir: string) => Promise<void>;
+  createNoteFolder: (dir: string) => Promise<void>;
+  renameNotePath: (path: string, newName: string) => Promise<void>;
+  deleteNotePath: (path: string) => Promise<void>;
+  reorderNotes: (dir: string, names: string[]) => Promise<void>;
+  moveNote: (path: string, targetDir: string, orderedNames: string[] | null) => Promise<void>;
   setAppMode: (mode: AppMode) => void;
   setBooksTab: (tab: BooksTab) => void;
   setSearchQuery: (query: string) => void;
   setFilterType: (type: ItemType | null) => void;
   setFilterCollection: (id: string | null) => void;
   selectItem: (id: string | null) => void;
+}
+
+// Entering "done" stamps the completion time; leaving it clears the stamp
+function statusChange(task: Task, status: TaskStatus): Partial<Task> {
+  if (status === task.status) return { status };
+  return status === "done"
+    ? { status, completedAt: String(Date.now()) }
+    : { status, completedAt: undefined };
 }
 
 export const useBoardStore = create<BoardState>((set, get) => ({
@@ -78,6 +97,8 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   taskProjects: [],
   tasks: [],
   activeProjectId: localStorage.getItem("cosmos-task-project"),
+  noteTree: [],
+  selectedNotePath: localStorage.getItem("cosmos-note-path"),
   appMode: (localStorage.getItem("cosmos-mode") as AppMode) || "moodboard",
   booksTab: "library",
   searchQuery: "",
@@ -523,6 +544,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     if (!vaultPath) return;
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
+    if (changes.status) changes = { ...changes, ...statusChange(task, changes.status) };
     const updated = { ...task, ...changes };
     await commands.updateTask(vaultPath, updated);
     set((s) => ({
@@ -547,7 +569,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       const overStatus = s.tasks[to].status;
       const next = [...s.tasks];
       const [moved] = next.splice(from, 1);
-      next.splice(to, 0, { ...moved, status: overStatus });
+      next.splice(to, 0, { ...moved, ...statusChange(moved, overStatus) });
       return { tasks: next };
     });
   },
@@ -558,7 +580,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       if (!task || task.status === status) return {};
       // Move to the end of the target column (end of array keeps column order stable)
       const rest = s.tasks.filter((t) => t.id !== draggedId);
-      return { tasks: [...rest, { ...task, status }] };
+      return { tasks: [...rest, { ...task, ...statusChange(task, status) }] };
     });
   },
 
@@ -569,6 +591,112 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     // Status may have changed while dragging across columns
     if (dragged) await commands.updateTask(vaultPath, dragged);
     await commands.reorderTasks(vaultPath, tasks.map((t) => t.id));
+  },
+
+  // "Transfer": the note replaces the task (title → filename, description → body)
+  transferTaskToNote: async (id) => {
+    const { vaultPath, tasks } = get();
+    if (!vaultPath) return;
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+    const path = await commands.createNoteWith(
+      vaultPath,
+      "",
+      task.title,
+      task.description ?? "",
+    );
+    await get().removeTask(id);
+    await get().loadNoteTree();
+    get().selectNote(path);
+    get().setAppMode("notes");
+  },
+
+  loadNoteTree: async () => {
+    const { vaultPath } = get();
+    if (!vaultPath) return;
+    const noteTree = await commands.listNotes(vaultPath);
+    // Drop a stale selection (file deleted/renamed outside the app)
+    const exists = (entries: NoteEntry[], path: string): boolean =>
+      entries.some(
+        (e) => (!e.isDir && e.path === path) || exists(e.children, path),
+      );
+    set((s) => ({
+      noteTree,
+      selectedNotePath:
+        s.selectedNotePath && exists(noteTree, s.selectedNotePath)
+          ? s.selectedNotePath
+          : null,
+    }));
+  },
+
+  selectNote: (path) => {
+    if (path) localStorage.setItem("cosmos-note-path", path);
+    else localStorage.removeItem("cosmos-note-path");
+    set({ selectedNotePath: path });
+  },
+
+  createNote: async (dir) => {
+    const { vaultPath } = get();
+    if (!vaultPath) return;
+    const path = await commands.createNote(vaultPath, dir);
+    await get().loadNoteTree();
+    get().selectNote(path);
+  },
+
+  createNoteFolder: async (dir) => {
+    const { vaultPath } = get();
+    if (!vaultPath) return;
+    await commands.createNoteFolder(vaultPath, dir);
+    await get().loadNoteTree();
+  },
+
+  renameNotePath: async (path, newName) => {
+    const { vaultPath, selectedNotePath } = get();
+    if (!vaultPath) return;
+    const newPath = await commands.renameNotePath(vaultPath, path, newName);
+    // Keep the selection pointing at the renamed note (or one inside a renamed folder)
+    if (selectedNotePath === path) {
+      get().selectNote(newPath);
+    } else if (selectedNotePath?.startsWith(path + "/")) {
+      get().selectNote(newPath + selectedNotePath.slice(path.length));
+    }
+    await get().loadNoteTree();
+  },
+
+  deleteNotePath: async (path) => {
+    const { vaultPath, selectedNotePath } = get();
+    if (!vaultPath) return;
+    await commands.deleteNotePath(vaultPath, path);
+    if (selectedNotePath === path || selectedNotePath?.startsWith(path + "/")) {
+      get().selectNote(null);
+    }
+    await get().loadNoteTree();
+  },
+
+  reorderNotes: async (dir, names) => {
+    const { vaultPath } = get();
+    if (!vaultPath) return;
+    await commands.setNoteOrder(vaultPath, dir, names);
+    await get().loadNoteTree();
+  },
+
+  // orderedNames places the moved entry at a specific position in the target
+  // folder; null appends it after the folder's ordered entries
+  moveNote: async (path, targetDir, orderedNames) => {
+    const { vaultPath, selectedNotePath } = get();
+    if (!vaultPath) return;
+    try {
+      const newPath = await commands.moveNotePath(vaultPath, path, targetDir);
+      if (orderedNames) await commands.setNoteOrder(vaultPath, targetDir, orderedNames);
+      if (selectedNotePath === path) {
+        get().selectNote(newPath);
+      } else if (selectedNotePath?.startsWith(path + "/")) {
+        get().selectNote(newPath + selectedNotePath.slice(path.length));
+      }
+    } catch (e) {
+      console.error("Failed to move note:", e);
+    }
+    await get().loadNoteTree();
   },
 
   setAppMode: (mode: AppMode) => {

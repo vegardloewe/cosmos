@@ -1,7 +1,7 @@
 mod models;
 mod commands;
 
-use commands::{vault, items, links, ai, books, capture, goals, tasks};
+use commands::{vault, items, links, ai, books, capture, goals, tasks, notes};
 use tauri_plugin_global_shortcut::ShortcutState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -59,6 +59,16 @@ pub fn run() {
             tasks::update_task,
             tasks::delete_task,
             tasks::reorder_tasks,
+            notes::list_notes,
+            notes::read_note,
+            notes::write_note,
+            notes::create_note,
+            notes::create_note_with,
+            notes::create_note_folder,
+            notes::rename_note_path,
+            notes::delete_note_path,
+            notes::set_note_order,
+            notes::move_note_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -75,28 +75,36 @@ body {
   appearance: none;
   width: 18px;
   height: 18px;
-  border: 2px solid #5C626B;
-  border-radius: 50%;
+  border: 1.5px solid #4a4d52;
+  border-radius: 5px;
+  background-color: #1a1b1d;
   margin-right: 0.5em;
   vertical-align: middle;
   position: relative;
   cursor: pointer;
   flex-shrink: 0;
 }
+.prose-card input[type="checkbox"]:hover {
+  border-color: #6b7078;
+}
 .prose-card input[type="checkbox"]:checked {
-  background-color: #5cb13e;
-  border-color: #5cb13e;
+  background-color: #e8eaed;
+  border-color: #e8eaed;
 }
 .prose-card input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
-  left: 4.5px;
+  left: 5px;
   top: 1.5px;
-  width: 5px;
-  height: 9px;
-  border: solid #fff;
+  width: 4.5px;
+  height: 8.5px;
+  border: solid #141517;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
+}
+/* Checked-off items read as done: muted like Notion */
+.prose-card li:has(> input[type="checkbox"]:checked) {
+  color: var(--color-text-muted);
 }
 .prose-card a {
   color: #60a5fa;

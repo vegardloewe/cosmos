@@ -18,6 +18,7 @@ export function BooksToolbar() {
   return (
     <>
       <div
+        data-tauri-drag-region
         className={`flex-1 items-center justify-end gap-2 relative z-10 ${
           appMode === "books" ? "flex" : "hidden"
         }`}

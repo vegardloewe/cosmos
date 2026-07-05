@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Sprout } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { useBoardStore } from "./stores/board-store";
 import type { BoardItem } from "./types";
@@ -12,6 +13,7 @@ import { GoalsToolbar } from "./components/GoalsToolbar";
 import { GoalsView } from "./components/GoalsView";
 import { TasksToolbar } from "./components/TasksToolbar";
 import { TasksView } from "./components/TasksView";
+import { NotesView } from "./components/NotesView";
 import { ModeSwitch } from "./components/ModeSwitch";
 import "./styles/index.css";
 
@@ -28,7 +30,15 @@ function App() {
   const addNote = useBoardStore((s) => s.addNote);
   const selectedItemId = useBoardStore((s) => s.selectedItemId);
   const appMode = useBoardStore((s) => s.appMode);
+  const createNote = useBoardStore((s) => s.createNote);
+  const setAppMode = useBoardStore((s) => s.setAppMode);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Quick idea capture: new note in the top-level Seedbox folder
+  const handleSeed = async () => {
+    await createNote("Seedbox");
+    setAppMode("notes");
+  };
 
   useEffect(() => {
     loadVault();
@@ -79,7 +89,8 @@ function App() {
       setIsDragging(false);
       for (const file of Array.from(e.dataTransfer?.files ?? [])) {
         const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-        if (!IMAGE_EXTENSIONS.includes(ext) && !VIDEO_EXTENSIONS.includes(ext)) continue;
+        if (!IMAGE_EXTENSIONS.includes(ext) && !VIDEO_EXTENSIONS.includes(ext))
+          continue;
         const buffer = await file.arrayBuffer();
         const data = Array.from(new Uint8Array(buffer));
         if (IMAGE_EXTENSIONS.includes(ext)) {
@@ -109,7 +120,11 @@ function App() {
     const handlePaste = async (e: ClipboardEvent) => {
       // Skip if user is typing in an input/textarea
       const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
         return;
       }
 
@@ -122,7 +137,10 @@ function App() {
           e.preventDefault();
           const blob = item.getAsFile();
           if (!blob) continue;
-          const ext = item.type.split("/")[1] === "jpeg" ? "jpg" : item.type.split("/")[1] || "png";
+          const ext =
+            item.type.split("/")[1] === "jpeg"
+              ? "jpg"
+              : item.type.split("/")[1] || "png";
           const buffer = await blob.arrayBuffer();
           const data = Array.from(new Uint8Array(buffer));
           addImageData(data, ext);
@@ -162,7 +180,11 @@ function App() {
   if (isLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-bg">
-        <img src="/cosmos-icon.png" alt="Cosmos" className="w-16 h-16 rounded-xl animate-pulse" />
+        <img
+          src="/cosmos-icon.png"
+          alt="Cosmos"
+          className="w-16 h-16 rounded-xl animate-pulse"
+        />
       </div>
     );
   }
@@ -186,20 +208,43 @@ function App() {
         <BooksToolbar />
         <GoalsToolbar />
         <TasksToolbar />
+        <button
+          onClick={handleSeed}
+          title="New note in Seedbox"
+          className={`ml-auto shrink-0 relative z-10 items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium bg-surface text-[#A8B4C6] hover:text-text hover:bg-[#18191A] transition-colors cursor-pointer ${
+            appMode === "notes" ? "flex" : "hidden"
+          }`}
+        >
+          <Sprout size={14} />
+          Seed
+        </button>
       </header>
 
       {/* Both views stay mounted; hiding via CSS avoids reloading all assets on mode switch */}
-      <div className={`flex-1 min-h-0 flex-col ${appMode === "moodboard" ? "flex" : "hidden"}`}>
+      <div
+        className={`flex-1 min-h-0 flex-col ${appMode === "moodboard" ? "flex" : "hidden"}`}
+      >
         <Board />
       </div>
-      <div className={`flex-1 min-h-0 flex-col ${appMode === "books" ? "flex" : "hidden"}`}>
+      <div
+        className={`flex-1 min-h-0 flex-col ${appMode === "books" ? "flex" : "hidden"}`}
+      >
         <BooksView />
       </div>
-      <div className={`flex-1 min-h-0 flex-col ${appMode === "goals" ? "flex" : "hidden"}`}>
+      <div
+        className={`flex-1 min-h-0 flex-col ${appMode === "goals" ? "flex" : "hidden"}`}
+      >
         <GoalsView />
       </div>
-      <div className={`flex-1 min-h-0 flex-col ${appMode === "tasks" ? "flex" : "hidden"}`}>
+      <div
+        className={`flex-1 min-h-0 flex-col ${appMode === "tasks" ? "flex" : "hidden"}`}
+      >
         <TasksView />
+      </div>
+      <div
+        className={`flex-1 min-h-0 flex-col ${appMode === "notes" ? "flex" : "hidden"}`}
+      >
+        <NotesView />
       </div>
       {appMode === "moodboard" && selectedItemId && <ItemDetail />}
 

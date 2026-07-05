@@ -104,6 +104,7 @@ export function Toolbar() {
   return (
     <>
       <div
+        data-tauri-drag-region
         className={`flex-1 min-w-0 items-center gap-4 relative z-10 ${
           appMode === "moodboard" ? "flex" : "hidden"
         }`}
@@ -131,7 +132,7 @@ export function Toolbar() {
             />
           </div>
         ) : (
-          <div className="flex-1 relative z-10" />
+          <div data-tauri-drag-region className="flex-1 relative z-10" />
         )}
 
         {/* Right: Collections + Filters + Add */}

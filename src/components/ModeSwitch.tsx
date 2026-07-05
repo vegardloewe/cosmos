@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useBoardStore } from "../stores/board-store";
 import type { AppMode } from "../stores/board-store";
 
@@ -7,6 +7,7 @@ const MODES: { label: string; value: AppMode }[] = [
   { label: "Books", value: "books" },
   { label: "Goals", value: "goals" },
   { label: "Tasks", value: "tasks" },
+  { label: "Notes", value: "notes" },
 ];
 
 export function ModeSwitch() {
@@ -22,6 +23,20 @@ export function ModeSwitch() {
     }
   }, [appMode]);
 
+  // Cmd+1..N jumps to the corresponding mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const index = Number(e.key) - 1;
+      if (Number.isInteger(index) && index >= 0 && index < MODES.length) {
+        e.preventDefault();
+        setAppMode(MODES[index].value);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [setAppMode]);
+
   return (
     <div className="relative flex items-center gap-0.5 bg-surface rounded-full p-1 shrink-0 z-10">
       {indicator && (
@@ -30,12 +45,13 @@ export function ModeSwitch() {
           style={{ left: indicator.left, width: indicator.width }}
         />
       )}
-      {MODES.map((mode) => (
+      {MODES.map((mode, i) => (
         <button
           key={mode.value}
           ref={(el) => {
             buttonRefs.current[mode.value] = el;
           }}
+          title={`⌘${i + 1}`}
           onClick={() => setAppMode(mode.value)}
           className={`relative px-3 py-1 rounded-full text-xs font-medium transition-colors duration-300 cursor-pointer ${
             appMode === mode.value ? "text-white" : "text-[#A8B4C6] hover:text-text"
