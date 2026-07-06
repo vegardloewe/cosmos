@@ -1,4 +1,5 @@
-import type { TaskEffort, TaskPriority, TaskStatus } from "../types";
+import { CalendarClock } from "lucide-react";
+import type { Task, TaskEffort, TaskPriority, TaskStatus } from "../types";
 
 export const STATUSES: { value: TaskStatus; label: string }[] = [
   { value: "backlog", label: "Backlog" },
@@ -88,6 +89,31 @@ export function PriorityIcon({ priority, size = 14 }: { priority?: TaskPriority;
         />
       ))}
     </svg>
+  );
+}
+
+// Past due once the deadline day is fully over; done tasks are never overdue
+export function isOverdue(task: Pick<Task, "deadline" | "status">): boolean {
+  if (!task.deadline || task.status === "done") return false;
+  const due = new Date(Number(task.deadline));
+  const dayAfter = new Date(due.getFullYear(), due.getMonth(), due.getDate() + 1);
+  return Date.now() >= dayAfter.getTime();
+}
+
+export function DeadlineBadge({ deadline, overdue }: { deadline: string; overdue: boolean }) {
+  const label = new Date(Number(deadline)).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+  return (
+    <span
+      className={`flex items-center gap-1 text-[11px] font-medium tabular-nums shrink-0 ${
+        overdue ? "text-red-400" : "text-text-muted"
+      }`}
+    >
+      <CalendarClock size={12} className="shrink-0" />
+      {label}
+    </span>
   );
 }
 

@@ -4,6 +4,7 @@ import * as commands from "../lib/tauri-commands";
 
 export type AppMode = "moodboard" | "books" | "goals" | "tasks" | "notes";
 export type BooksTab = "library" | "want";
+export type TasksViewMode = "board" | "list";
 
 interface BoardState {
   vaultPath: string | null;
@@ -18,6 +19,7 @@ interface BoardState {
   selectedNotePath: string | null;
   appMode: AppMode;
   booksTab: BooksTab;
+  tasksViewMode: TasksViewMode;
   searchQuery: string;
   filterType: ItemType | null;
   filterCollectionId: string | null;
@@ -57,7 +59,7 @@ interface BoardState {
   addTaskProject: (name: string, color: string) => Promise<void>;
   removeTaskProject: (id: string) => Promise<void>;
   setActiveProject: (id: string | null) => void;
-  addTask: (title: string, description: string | null, status: TaskStatus, priority: TaskPriority | null, effort: TaskEffort | null) => Promise<void>;
+  addTask: (title: string, description: string | null, status: TaskStatus, priority: TaskPriority | null, effort: TaskEffort | null, deadline: string | null) => Promise<void>;
   updateTask: (id: string, changes: Partial<Task>) => Promise<void>;
   removeTask: (id: string) => Promise<void>;
   moveTask: (draggedId: string, overId: string) => void;
@@ -74,6 +76,7 @@ interface BoardState {
   moveNote: (path: string, targetDir: string, orderedNames: string[] | null) => Promise<void>;
   setAppMode: (mode: AppMode) => void;
   setBooksTab: (tab: BooksTab) => void;
+  setTasksViewMode: (mode: TasksViewMode) => void;
   setSearchQuery: (query: string) => void;
   setFilterType: (type: ItemType | null) => void;
   setFilterCollection: (id: string | null) => void;
@@ -101,6 +104,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   selectedNotePath: localStorage.getItem("cosmos-note-path"),
   appMode: (localStorage.getItem("cosmos-mode") as AppMode) || "moodboard",
   booksTab: "library",
+  tasksViewMode: (localStorage.getItem("cosmos-tasks-view") as TasksViewMode) || "board",
   searchQuery: "",
   filterType: null,
   filterCollectionId: null,
@@ -524,7 +528,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     set({ activeProjectId: id });
   },
 
-  addTask: async (title, description, status, priority, effort) => {
+  addTask: async (title, description, status, priority, effort, deadline) => {
     const { vaultPath, activeProjectId } = get();
     if (!vaultPath || !activeProjectId) return;
     const task = await commands.addTask(
@@ -535,6 +539,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       status,
       priority,
       effort,
+      deadline,
     );
     set((s) => ({ tasks: [...s.tasks, task] }));
   },
@@ -704,6 +709,10 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     set({ appMode: mode });
   },
   setBooksTab: (tab: BooksTab) => set({ booksTab: tab }),
+  setTasksViewMode: (mode: TasksViewMode) => {
+    localStorage.setItem("cosmos-tasks-view", mode);
+    set({ tasksViewMode: mode });
+  },
   setSearchQuery: (query: string) => set({ searchQuery: query }),
   setFilterType: (type: ItemType | null) => set({ filterType: type }),
   setFilterCollection: (id: string | null) => set({ filterCollectionId: id }),

@@ -3,11 +3,11 @@ import { useBoardStore } from "../stores/board-store";
 import type { AppMode } from "../stores/board-store";
 
 const MODES: { label: string; value: AppMode }[] = [
-  { label: "Shots", value: "moodboard" },
-  { label: "Books", value: "books" },
-  { label: "Goals", value: "goals" },
   { label: "Tasks", value: "tasks" },
   { label: "Notes", value: "notes" },
+  { label: "Goals", value: "goals" },
+  { label: "Shots", value: "moodboard" },
+  { label: "Books", value: "books" },
 ];
 
 export function ModeSwitch() {

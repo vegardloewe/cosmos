@@ -143,8 +143,9 @@ export function addTask(
   status: TaskStatus,
   priority: TaskPriority | null,
   effort: TaskEffort | null,
+  deadline: string | null,
 ): Promise<Task> {
-  return invoke("add_task", { vault, projectId, title, description, status, priority, effort });
+  return invoke("add_task", { vault, projectId, title, description, status, priority, effort, deadline });
 }
 
 export function updateTask(vault: string, task: Task): Promise<void> {

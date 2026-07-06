@@ -39,6 +39,7 @@ fn add_task_impl(
     status: String,
     priority: Option<String>,
     effort: Option<String>,
+    deadline: Option<String>,
 ) -> Result<Task, String> {
     let now = now_millis();
     let task = Task {
@@ -50,6 +51,7 @@ fn add_task_impl(
         status,
         priority,
         effort,
+        deadline,
         created_at: now.clone(),
         updated_at: now,
     };
@@ -123,9 +125,10 @@ pub async fn add_task(
     status: String,
     priority: Option<String>,
     effort: Option<String>,
+    deadline: Option<String>,
 ) -> Result<Task, String> {
     super::run_blocking(move || {
-        add_task_impl(vault, project_id, title, description, status, priority, effort)
+        add_task_impl(vault, project_id, title, description, status, priority, effort, deadline)
     })
     .await
 }

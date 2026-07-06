@@ -223,6 +223,19 @@ export function MarkdownEditor({
     syncToMarkdown();
   }, [syncToMarkdown]);
 
+  // Paste as plain text — the default would inject the source page's HTML
+  // (colors, fonts) straight into the editor
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      e.preventDefault();
+      const text = e.clipboardData.getData("text/plain");
+      if (!text) return;
+      document.execCommand("insertText", false, text);
+      syncToMarkdown();
+    },
+    [syncToMarkdown],
+  );
+
   /* ── Notion-style block shortcuts (typed at line start + space) ── */
 
   // "# " → heading, "- " → list, "[] " → checkbox, "> " → quote.
@@ -445,9 +458,12 @@ export function MarkdownEditor({
         const li =
           (sel.anchorNode as HTMLElement).closest?.("li") ||
           sel.anchorNode.parentElement?.closest("li");
+        // The ZWSP caret anchor makes a visually empty checklist item
+        // non-empty in textContent — strip it before deciding
+        const liText = li?.textContent?.replace(/\u200B/g, "").trim();
         // Enter on a non-empty checklist item → the next item gets a
         // checkbox too (the browser would insert a plain bullet)
-        if (li && li.textContent?.trim() && li.querySelector('input[type="checkbox"]')) {
+        if (li && liText && li.querySelector('input[type="checkbox"]')) {
           e.preventDefault();
           const range = sel.getRangeAt(0);
           const tail = document.createRange();
@@ -468,20 +484,32 @@ export function MarkdownEditor({
           syncToMarkdown();
           return;
         }
-        if (li && !li.textContent?.trim()) {
+        // Enter on an empty item (bullet or checkbox) → remove it and
+        // break out of the list into a fresh paragraph, splitting the
+        // list when items follow
+        if (li && !liText) {
           e.preventDefault();
           const ul = li.parentElement;
-          li.remove();
-          if (ul && ul.children.length === 0) {
-            const p = document.createElement("p");
-            p.innerHTML = "<br>";
-            ul.replaceWith(p);
-            const range = document.createRange();
-            range.setStart(p, 0);
-            range.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(range);
+          const p = document.createElement("p");
+          p.innerHTML = "<br>";
+          if (ul) {
+            const following = Array.from(ul.children).filter(
+              (child) => child.compareDocumentPosition(li) & Node.DOCUMENT_POSITION_PRECEDING,
+            );
+            li.remove();
+            ul.after(p);
+            if (following.length > 0) {
+              const rest = document.createElement("ul");
+              following.forEach((item) => rest.appendChild(item));
+              p.after(rest);
+            }
+            if (ul.children.length === 0) ul.remove();
           }
+          const range = document.createRange();
+          range.setStart(p, 0);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
           syncToMarkdown();
         }
       }
@@ -738,6 +766,7 @@ export function MarkdownEditor({
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}
+        onPaste={handlePaste}
         onBlur={onBlur}
         onKeyDown={handleKeyDown}
         onClick={handleClick}

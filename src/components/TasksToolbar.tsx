@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, KanbanSquare, List, Plus, Trash2 } from "lucide-react";
 import { useBoardStore } from "../stores/board-store";
+import type { TasksViewMode } from "../stores/board-store";
 import { TAG_COLORS } from "../lib/colors";
 import { TaskModal } from "./TaskModal";
+
+const VIEW_MODES: { value: TasksViewMode; label: string; icon: typeof List }[] = [
+  { value: "board", label: "Board view", icon: KanbanSquare },
+  { value: "list", label: "List view", icon: List },
+];
 
 export function TasksToolbar() {
   const appMode = useBoardStore((s) => s.appMode);
@@ -11,6 +17,8 @@ export function TasksToolbar() {
   const setActiveProject = useBoardStore((s) => s.setActiveProject);
   const addTaskProject = useBoardStore((s) => s.addTaskProject);
   const removeTaskProject = useBoardStore((s) => s.removeTaskProject);
+  const tasksViewMode = useBoardStore((s) => s.tasksViewMode);
+  const setTasksViewMode = useBoardStore((s) => s.setTasksViewMode);
 
   const [showPicker, setShowPicker] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -48,6 +56,23 @@ export function TasksToolbar() {
           appMode === "tasks" ? "flex" : "hidden"
         }`}
       >
+        <div className="flex items-center gap-0.5 bg-surface rounded-full p-1">
+          {VIEW_MODES.map((mode) => (
+            <button
+              key={mode.value}
+              title={mode.label}
+              onClick={() => setTasksViewMode(mode.value)}
+              className={`p-1 rounded-full transition-colors cursor-pointer ${
+                tasksViewMode === mode.value
+                  ? "bg-[#2A2B2D] text-white"
+                  : "text-[#A8B4C6] hover:text-text"
+              }`}
+            >
+              <mode.icon size={14} />
+            </button>
+          ))}
+        </div>
+
         <div className="relative" ref={pickerRef}>
           <button
             onClick={() => setShowPicker((v) => !v)}

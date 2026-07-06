@@ -80,6 +80,8 @@ pub struct Task {
     pub status: String, // "backlog" | "todo" | "in_progress" | "done"
     pub priority: Option<String>, // "urgent" | "high" | "medium" | "low"
     pub effort: Option<String>,   // "s" | "m" | "l" | "xl"
+    #[serde(default)]
+    pub deadline: Option<String>, // millis at local midnight of the due date
     pub completed_at: Option<String>, // millis; set while status is "done"
     pub created_at: String,
     pub updated_at: String,

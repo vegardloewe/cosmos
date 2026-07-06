@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useBoardStore } from "../stores/board-store";
 import type { Task, TaskEffort, TaskPriority, TaskStatus } from "../types";
 import { EFFORTS, PRIORITIES, STATUSES, PriorityIcon, StatusIcon } from "./task-meta";
+import { DeadlinePicker } from "./DeadlinePicker";
 
 interface TaskModalProps {
   onClose: () => void;
@@ -50,6 +51,7 @@ export function TaskModal({ onClose, task, initialStatus }: TaskModalProps) {
   const [status, setStatus] = useState<TaskStatus>(task?.status ?? initialStatus ?? "backlog");
   const [priority, setPriority] = useState<TaskPriority | null>(task?.priority ?? null);
   const [effort, setEffort] = useState<TaskEffort | null>(task?.effort ?? null);
+  const [deadline, setDeadline] = useState<string | null>(task?.deadline ?? null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSave = async () => {
@@ -63,9 +65,10 @@ export function TaskModal({ onClose, task, initialStatus }: TaskModalProps) {
           status,
           priority: priority ?? undefined,
           effort: effort ?? undefined,
+          deadline: deadline ?? undefined,
         });
       } else {
-        await addTask(title.trim(), description.trim() || null, status, priority, effort);
+        await addTask(title.trim(), description.trim() || null, status, priority, effort, deadline);
       }
       onClose();
     } catch (e) {
@@ -129,6 +132,14 @@ export function TaskModal({ onClose, task, initialStatus }: TaskModalProps) {
               {p.label}
             </PickerButton>
           ))}
+        </PickerRow>
+
+        <PickerRow label="Deadline">
+          <DeadlinePicker
+            value={deadline ?? undefined}
+            onChange={setDeadline}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-transparent bg-bg text-[#A8B4C6] hover:text-text hover:border-border transition-colors"
+          />
         </PickerRow>
 
         <PickerRow label="Effort">

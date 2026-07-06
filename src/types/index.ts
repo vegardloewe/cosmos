@@ -79,6 +79,7 @@ export interface Task {
   status: TaskStatus;
   priority?: TaskPriority;
   effort?: TaskEffort;
+  deadline?: string; // millis at local midnight of the due date
   completedAt?: string; // millis; set while status is "done"
   createdAt: string;
   updatedAt: string;

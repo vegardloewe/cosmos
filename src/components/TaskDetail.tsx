@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { FileText, X } from "lucide-react";
 import { useBoardStore } from "../stores/board-store";
 import { MarkdownEditor } from "./MarkdownEditor";
-import { EFFORTS, PRIORITIES, STATUSES, EffortPill, PriorityIcon, StatusIcon } from "./task-meta";
+import { isOverdue, EFFORTS, PRIORITIES, STATUSES, EffortPill, PriorityIcon, StatusIcon } from "./task-meta";
+import { DeadlinePicker } from "./DeadlinePicker";
 
 function formatDate(millis: string): string {
   const date = new Date(Number(millis));
@@ -232,6 +233,12 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
                 onSelect={(key) =>
                   updateTask(task.id, { effort: key ? (key as typeof task.effort) : undefined })
                 }
+              />
+              <DeadlinePicker
+                value={task.deadline}
+                overdue={isOverdue(task)}
+                onChange={(millis) => updateTask(task.id, { deadline: millis ?? undefined })}
+                className="w-full gap-2.5 px-2 py-1.5 rounded-md text-[13px] text-left hover:bg-[#18191A] transition-colors"
               />
             </SidebarSection>
 

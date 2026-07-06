@@ -4,8 +4,32 @@ import { useBoardStore } from "../stores/board-store";
 import { TAG_COLORS } from "../lib/colors";
 import { TaskModal } from "./TaskModal";
 import { TaskDetail } from "./TaskDetail";
-import { EffortPill, PriorityIcon, STATUSES, StatusIcon } from "./task-meta";
-import type { Task, TaskStatus } from "../types";
+import { DeadlineBadge, EffortPill, isOverdue, PriorityIcon, STATUSES, StatusIcon } from "./task-meta";
+import type { Task, TaskPriority, TaskStatus } from "../types";
+
+// List view groups active work first; the board keeps left-to-right workflow order
+const LIST_STATUS_ORDER: TaskStatus[] = ["in_progress", "todo", "backlog", "done"];
+
+// Linear's list ordering: urgent first, unset priority last
+const PRIORITY_RANK: Record<TaskPriority, number> = {
+  urgent: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
+function byPriority(a: Task, b: Task): number {
+  const rankA = a.priority ? PRIORITY_RANK[a.priority] : 4;
+  const rankB = b.priority ? PRIORITY_RANK[b.priority] : 4;
+  return rankA - rankB;
+}
+
+function formatDate(millis: string): string {
+  return new Date(Number(millis)).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
 
 function completedToday(task: Task): boolean {
   if (!task.completedAt) return false;
@@ -18,7 +42,8 @@ function completedToday(task: Task): boolean {
   );
 }
 
-function TaskCard({ task, onEdit }: { task: Task; onEdit: (task: Task) => void }) {
+// Right-click menu shared by board cards and list rows
+function useTaskMenu(task: Task, onEdit: (task: Task) => void) {
   const removeTask = useBoardStore((s) => s.removeTask);
   const transferTaskToNote = useBoardStore((s) => s.transferTaskToNote);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -36,63 +61,100 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (task: Task) => void }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menu]);
 
+  const openMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  const menuElement = menu && (
+    <div
+      ref={menuRef}
+      className="fixed z-[200] w-40 bg-[#0F1010] border border-border rounded-xl shadow-2xl overflow-hidden"
+      style={{ left: menu.x, top: menu.y }}
+    >
+      <button
+        onClick={() => {
+          setMenu(null);
+          onEdit(task);
+        }}
+        className="w-full px-4 py-2.5 text-sm text-[#A8B4C6] hover:bg-[#18191A] transition-colors cursor-pointer text-left"
+      >
+        Edit
+      </button>
+      <button
+        onClick={() => {
+          setMenu(null);
+          transferTaskToNote(task.id);
+        }}
+        className="w-full px-4 py-2.5 text-sm text-[#A8B4C6] hover:bg-[#18191A] transition-colors cursor-pointer text-left"
+      >
+        Turn into note
+      </button>
+      <button
+        onClick={() => {
+          setMenu(null);
+          removeTask(task.id);
+        }}
+        className="w-full px-4 py-2.5 text-sm text-red-400 hover:bg-[#18191A] transition-colors cursor-pointer text-left"
+      >
+        Delete
+      </button>
+    </div>
+  );
+
+  return { openMenu, menuElement };
+}
+
+function TaskCard({ task, onEdit }: { task: Task; onEdit: (task: Task) => void }) {
+  const { openMenu, menuElement } = useTaskMenu(task, onEdit);
+
   return (
     <>
       <div
         onClick={() => onEdit(task)}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setMenu({ x: e.clientX, y: e.clientY });
-        }}
+        onContextMenu={openMenu}
         className="bg-surface border border-border rounded-lg p-3 flex flex-col gap-2 cursor-pointer hover:border-[#3A3D42] transition-colors select-none"
       >
         <p className="text-[13px] font-medium text-text leading-snug">{task.title}</p>
-        {task.description && (
-          <p className="text-xs text-text-muted leading-snug line-clamp-2">{task.description}</p>
-        )}
-        {(task.priority || task.effort) && (
+        {(task.priority || task.effort || task.deadline) && (
           <div className="flex items-center gap-2">
             {task.priority && <PriorityIcon priority={task.priority} />}
             {task.effort && <EffortPill effort={task.effort} />}
+            {task.deadline && (
+              <DeadlineBadge deadline={task.deadline} overdue={isOverdue(task)} />
+            )}
           </div>
         )}
       </div>
+      {menuElement}
+    </>
+  );
+}
 
-      {menu && (
-        <div
-          ref={menuRef}
-          className="fixed z-[200] w-40 bg-[#0F1010] border border-border rounded-xl shadow-2xl overflow-hidden"
-          style={{ left: menu.x, top: menu.y }}
-        >
-          <button
-            onClick={() => {
-              setMenu(null);
-              onEdit(task);
-            }}
-            className="w-full px-4 py-2.5 text-sm text-[#A8B4C6] hover:bg-[#18191A] transition-colors cursor-pointer text-left"
-          >
-            Edit
-          </button>
-          <button
-            onClick={() => {
-              setMenu(null);
-              transferTaskToNote(task.id);
-            }}
-            className="w-full px-4 py-2.5 text-sm text-[#A8B4C6] hover:bg-[#18191A] transition-colors cursor-pointer text-left"
-          >
-            Turn into note
-          </button>
-          <button
-            onClick={() => {
-              setMenu(null);
-              removeTask(task.id);
-            }}
-            className="w-full px-4 py-2.5 text-sm text-red-400 hover:bg-[#18191A] transition-colors cursor-pointer text-left"
-          >
-            Delete
-          </button>
-        </div>
-      )}
+function TaskRow({ task, onEdit }: { task: Task; onEdit: (task: Task) => void }) {
+  const { openMenu, menuElement } = useTaskMenu(task, onEdit);
+
+  return (
+    <>
+      <div
+        onClick={() => onEdit(task)}
+        onContextMenu={openMenu}
+        className="flex items-center gap-3 pl-8 pr-4 py-2 cursor-pointer hover:bg-[#0F1010] transition-colors select-none"
+      >
+        <PriorityIcon priority={task.priority} />
+        <StatusIcon status={task.status} />
+        <span className="flex-1 min-w-0 truncate text-[13px] font-medium text-text">
+          {task.title}
+        </span>
+        {task.deadline && (
+          <DeadlineBadge deadline={task.deadline} overdue={isOverdue(task)} />
+        )}
+        {task.effort && <EffortPill effort={task.effort} />}
+        <span className="w-12 text-right text-xs text-text-muted tabular-nums shrink-0">
+          {formatDate(task.createdAt)}
+        </span>
+      </div>
+      {menuElement}
     </>
   );
 }
@@ -105,6 +167,7 @@ export function TasksView() {
   const moveTask = useBoardStore((s) => s.moveTask);
   const moveTaskToStatus = useBoardStore((s) => s.moveTaskToStatus);
   const persistTaskDrag = useBoardStore((s) => s.persistTaskDrag);
+  const tasksViewMode = useBoardStore((s) => s.tasksViewMode);
 
   const [dragId, setDragId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
@@ -199,6 +262,59 @@ export function TasksView() {
             </button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (tasksViewMode === "list") {
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+        {LIST_STATUS_ORDER.map((status) => {
+          const column = columns.find((c) => c.value === status)!;
+          // Like Linear, empty groups are hidden (unless Done has hidden old tasks)
+          if (column.tasks.length === 0 && column.oldCount === 0) return null;
+          const sorted = [...column.tasks].sort(byPriority);
+          return (
+            <div key={column.value} className="mb-1">
+              <div className="sticky top-0 z-10 bg-bg pt-2 pb-1">
+                <div className="flex items-center gap-2 px-3 py-2 bg-[#0B0C0C] rounded-lg">
+                  <StatusIcon status={column.value} />
+                  <span className="text-[13px] font-medium text-text">{column.label}</span>
+                  <span className="text-xs text-text-muted tabular-nums">{sorted.length}</span>
+                  <button
+                    onClick={() => setAddingToStatus(column.value)}
+                    title={`Add to ${column.label}`}
+                    className="ml-auto p-1 rounded text-text-muted hover:text-text hover:bg-surface transition-colors cursor-pointer"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {sorted.map((task) => (
+                <TaskRow key={task.id} task={task} onEdit={setEditingTask} />
+              ))}
+
+              {column.value === "done" && column.oldCount > 0 && (
+                <button
+                  onClick={() => setShowOldTasks((v) => !v)}
+                  className="mt-1 ml-8 px-2 py-1.5 rounded-md text-xs text-text-muted hover:text-text hover:bg-surface transition-colors cursor-pointer text-left"
+                >
+                  {showOldTasks
+                    ? "Hide old tasks"
+                    : `Show old tasks (${column.oldCount})`}
+                </button>
+              )}
+            </div>
+          );
+        })}
+
+        {editingTask && (
+          <TaskDetail taskId={editingTask.id} onClose={() => setEditingTask(null)} />
+        )}
+        {addingToStatus && (
+          <TaskModal initialStatus={addingToStatus} onClose={() => setAddingToStatus(null)} />
+        )}
       </div>
     );
   }
