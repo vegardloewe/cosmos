@@ -3,6 +3,8 @@ import { BookOpen, ArrowLeft } from "lucide-react";
 import { useBoardStore } from "../stores/board-store";
 import { searchBooks } from "../lib/tauri-commands";
 import type { BookSearchResult, BookStatus } from "../types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface AddBookModalProps {
   onClose: () => void;
@@ -124,19 +126,19 @@ export function AddBookModal({ onClose }: AddBookModalProps) {
                 </div>
               )}
               <div className="flex-1 min-w-0 flex flex-col gap-2">
-                <input
+                <Input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Title"
-                  className="w-full px-3 py-2 bg-bg rounded-lg text-sm text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
+                  className="h-9 px-3"
                 />
-                <input
+                <Input
                   type="text"
                   value={author}
                   onChange={(e) => setAuthor(e.target.value)}
                   placeholder="Author (optional)"
-                  className="w-full px-3 py-2 bg-bg rounded-lg text-sm text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
+                  className="h-9 px-3"
                 />
                 {selected.firstPublishYear && (
                   <p className="text-xs text-text-muted">
@@ -163,33 +165,27 @@ export function AddBookModal({ onClose }: AddBookModalProps) {
             </div>
 
             {status === "read" && (
-              <input
+              <Input
                 type="number"
                 value={yearRead}
                 onChange={(e) => setYearRead(e.target.value)}
                 placeholder="Year read"
-                className="w-full px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
               />
             )}
 
-            <button
-              onClick={handleAdd}
-              disabled={isSubmitting || !title.trim()}
-              className="w-full py-3 bg-white text-bg font-semibold rounded-xl hover:bg-white/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? "Adding..." : "Add Book"}
-            </button>
+            <Button className="w-full" onClick={handleAdd} disabled={isSubmitting || !title.trim()}>
+              {isSubmitting ? "Adding..." : "Add book"}
+            </Button>
           </div>
         ) : (
           <div className="flex flex-col">
             <div className="p-6 pb-4">
-              <input
+              <Input
                 autoFocus
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search books by title or author..."
-                className="w-full px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
               />
             </div>
 

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useBoardStore } from "../stores/board-store";
 import { MarkdownEditor } from "./MarkdownEditor";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type Tab = "image" | "video" | "link" | "note";
 
@@ -188,32 +190,26 @@ export function AddModal({ onClose }: AddModalProps) {
 
           {activeTab === "link" && (
             <div className="flex flex-col gap-4 h-full justify-center">
-              <input
+              <Input
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://example.com"
-                className="w-full px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
                 onKeyDown={(e) => e.key === "Enter" && handleAddLink()}
               />
-              <button
-                onClick={handleAddLink}
-                disabled={isSubmitting || !url.trim()}
-                className="w-full py-3 bg-white text-bg font-semibold rounded-xl hover:bg-white/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? "Adding..." : "Add Link"}
-              </button>
+              <Button className="w-full" onClick={handleAddLink} disabled={isSubmitting || !url.trim()}>
+                {isSubmitting ? "Adding..." : "Add link"}
+              </Button>
             </div>
           )}
 
           {activeTab === "note" && (
             <div className="flex flex-col gap-4 h-full">
-              <input
+              <Input
                 type="text"
                 value={noteTitle}
                 onChange={(e) => setNoteTitle(e.target.value)}
                 placeholder="Title"
-                className="w-full px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
               />
               <MarkdownEditor
                 value={noteContent}
@@ -222,15 +218,13 @@ export function AddModal({ onClose }: AddModalProps) {
                 rows={6}
                 className="w-full flex-1 px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20 resize-none"
               />
-              <button
+              <Button
+                className="w-full"
                 onClick={handleSaveNote}
-                disabled={
-                  isSubmitting || (!noteTitle.trim() && !noteContent.trim())
-                }
-                className="w-full py-3 bg-white text-bg font-semibold rounded-xl hover:bg-white/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSubmitting || (!noteTitle.trim() && !noteContent.trim())}
               >
-                {isSubmitting ? "Saving..." : "Save Note"}
-              </button>
+                {isSubmitting ? "Saving..." : "Save note"}
+              </Button>
             </div>
           )}
         </div>

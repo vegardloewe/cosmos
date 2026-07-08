@@ -4,6 +4,7 @@ import { useBoardStore } from "../stores/board-store";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { isOverdue, EFFORTS, PRIORITIES, STATUSES, EffortPill, PriorityIcon, StatusIcon } from "./task-meta";
 import { DeadlinePicker } from "./DeadlinePicker";
+import { Button } from "@/components/ui/button";
 
 function formatDate(millis: string): string {
   const date = new Date(Number(millis));
@@ -274,7 +275,10 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
           </div>
 
           <div className="p-3 border-t border-border flex flex-col gap-2">
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full"
               onClick={async () => {
                 // Description edits normally save on blur — flush them first
                 // so the note gets the latest text
@@ -284,20 +288,21 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
                 await transferTaskToNote(task.id);
                 onClose();
               }}
-              className="w-full flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-[#A8B4C6] bg-[#18191A] rounded-lg hover:text-text hover:bg-[#1F2123] transition-colors cursor-pointer"
             >
               <FileText size={14} />
               Turn into note
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="w-full"
               onClick={() => {
                 removeTask(task.id);
                 onClose();
               }}
-              className="w-full py-2 text-sm font-medium text-red-400 bg-red-400/10 rounded-lg hover:bg-red-400/20 transition-colors cursor-pointer"
             >
               Delete
-            </button>
+            </Button>
           </div>
         </div>
       </div>

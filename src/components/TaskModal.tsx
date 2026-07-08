@@ -3,6 +3,9 @@ import { useBoardStore } from "../stores/board-store";
 import type { Task, TaskEffort, TaskPriority, TaskStatus } from "../types";
 import { EFFORTS, PRIORITIES, STATUSES, PriorityIcon, StatusIcon } from "./task-meta";
 import { DeadlinePicker } from "./DeadlinePicker";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface TaskModalProps {
   onClose: () => void;
@@ -91,22 +94,20 @@ export function TaskModal({ onClose, task, initialStatus }: TaskModalProps) {
           {task ? "Edit task" : "New task"}
         </h2>
 
-        <input
+        <Input
           autoFocus
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Task title"
-          className="w-full px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
           onKeyDown={(e) => e.key === "Enter" && handleSave()}
         />
 
-        <textarea
+        <Textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Description (optional)"
           rows={3}
-          className="w-full px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20 resize-none"
         />
 
         <PickerRow label="Status">
@@ -157,13 +158,9 @@ export function TaskModal({ onClose, task, initialStatus }: TaskModalProps) {
           ))}
         </PickerRow>
 
-        <button
-          onClick={handleSave}
-          disabled={isSubmitting || !title.trim()}
-          className="w-full py-3 bg-white text-bg font-semibold rounded-xl hover:bg-white/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSubmitting ? "Saving..." : task ? "Save Changes" : "Add Task"}
-        </button>
+        <Button className="w-full" onClick={handleSave} disabled={isSubmitting || !title.trim()}>
+          {isSubmitting ? "Saving..." : task ? "Save changes" : "Add task"}
+        </Button>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { TAG_COLORS } from "../lib/colors";
 import { TaskModal } from "./TaskModal";
 import { TaskDetail } from "./TaskDetail";
 import { DeadlineBadge, EffortPill, isOverdue, PriorityIcon, STATUSES, StatusIcon } from "./task-meta";
+import { Button } from "@/components/ui/button";
 import type { Task, TaskPriority, TaskStatus } from "../types";
 
 // List view groups active work first; the board keeps left-to-right workflow order
@@ -249,17 +250,16 @@ export function TasksView() {
               placeholder="Project name (e.g. Side projects)"
               className="flex-1 min-w-0 px-4 py-2.5 bg-surface rounded-xl text-sm text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
             />
-            <button
+            <Button
               onClick={() => {
                 if (!newProjectName.trim()) return;
                 addTaskProject(newProjectName.trim(), TAG_COLORS[0]);
                 setNewProjectName("");
               }}
               disabled={!newProjectName.trim()}
-              className="px-4 py-2.5 bg-white text-bg text-sm font-semibold rounded-xl hover:bg-white/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Create
-            </button>
+            </Button>
           </div>
         </div>
       </div>

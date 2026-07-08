@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useBoardStore } from "../stores/board-store";
 import type { Book } from "../types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface BookEditModalProps {
   book: Book;
@@ -40,31 +42,25 @@ export function BookEditModal({ book, onClose }: BookEditModalProps) {
       >
         <h2 className="text-lg font-semibold text-text">Edit book</h2>
 
-        <input
+        <Input
           autoFocus
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Title"
-          className="w-full px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
           onKeyDown={(e) => e.key === "Enter" && handleSave()}
         />
-        <input
+        <Input
           type="text"
           value={author}
           onChange={(e) => setAuthor(e.target.value)}
           placeholder="Author (optional)"
-          className="w-full px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
           onKeyDown={(e) => e.key === "Enter" && handleSave()}
         />
 
-        <button
-          onClick={handleSave}
-          disabled={isSubmitting || !title.trim()}
-          className="w-full py-3 bg-white text-bg font-semibold rounded-xl hover:bg-white/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSubmitting ? "Saving..." : "Save Changes"}
-        </button>
+        <Button className="w-full" onClick={handleSave} disabled={isSubmitting || !title.trim()}>
+          {isSubmitting ? "Saving..." : "Save changes"}
+        </Button>
       </div>
     </div>
   );

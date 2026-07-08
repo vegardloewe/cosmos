@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useBoardStore } from "../stores/board-store";
 import type { Goal } from "../types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface GoalModalProps {
   onClose: () => void;
@@ -67,23 +69,21 @@ export function GoalModal({ onClose, goal }: GoalModalProps) {
           {goal ? "Edit goal" : "New goal"}
         </h2>
 
-        <input
+        <Input
           autoFocus
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Goal (e.g. 5k: 17:30)"
-          className="w-full px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
           onKeyDown={(e) => e.key === "Enter" && handleSave()}
         />
 
-        <input
+        <Input
           type="text"
           list="goal-categories"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           placeholder="Category (e.g. Running)"
-          className="w-full px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
         />
         <datalist id="goal-categories">
           {categories.map((c) => (
@@ -96,31 +96,31 @@ export function GoalModal({ onClose, goal }: GoalModalProps) {
             Progress (optional — e.g. 5 of 15 books)
           </p>
           <div className="flex items-center gap-2">
-            <input
+            <Input
               type="number"
               value={current}
               onChange={(e) => setCurrent(e.target.value)}
               placeholder="Current"
-              className="flex-1 min-w-0 px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
+              className="flex-1"
             />
             <span className="text-text-muted">/</span>
-            <input
+            <Input
               type="number"
               value={target}
               onChange={(e) => setTarget(e.target.value)}
               placeholder="Target"
-              className="flex-1 min-w-0 px-4 py-3 bg-bg rounded-xl text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-white/20"
+              className="flex-1"
             />
           </div>
         </div>
 
-        <button
+        <Button
+          className="w-full"
           onClick={handleSave}
           disabled={isSubmitting || !title.trim() || !category.trim()}
-          className="w-full py-3 bg-white text-bg font-semibold rounded-xl hover:bg-white/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSubmitting ? "Saving..." : goal ? "Save Changes" : "Add Goal"}
-        </button>
+          {isSubmitting ? "Saving..." : goal ? "Save changes" : "Add goal"}
+        </Button>
       </div>
     </div>
   );
