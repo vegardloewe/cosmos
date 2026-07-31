@@ -3,6 +3,7 @@ pub mod items;
 pub mod links;
 pub mod ai;
 pub mod books;
+#[cfg(desktop)]
 pub mod capture;
 pub mod goals;
 pub mod tasks;

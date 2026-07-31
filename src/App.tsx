@@ -15,6 +15,7 @@ import { TasksToolbar } from "./components/TasksToolbar";
 import { TasksView } from "./components/TasksView";
 import { NotesView } from "./components/NotesView";
 import { ModeSwitch } from "./components/ModeSwitch";
+import { isIOS } from "./lib/platform";
 import "./styles/index.css";
 
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"];
@@ -32,7 +33,9 @@ function App() {
   const appMode = useBoardStore((s) => s.appMode);
   const createNote = useBoardStore((s) => s.createNote);
   const setAppMode = useBoardStore((s) => s.setAppMode);
+  const setTasksViewMode = useBoardStore((s) => s.setTasksViewMode);
   const [isDragging, setIsDragging] = useState(false);
+  const mobile = isIOS();
 
   // Quick idea capture: new note in the top-level Seedbox folder
   const handleSeed = async () => {
@@ -43,6 +46,14 @@ function App() {
   useEffect(() => {
     loadVault();
   }, [loadVault]);
+
+  // Cosmos on iPhone is deliberately task-first: the list view is more useful
+  // for touch than a four-column desktop kanban board.
+  useEffect(() => {
+    if (!mobile) return;
+    setAppMode("tasks");
+    setTasksViewMode("list");
+  }, [mobile, setAppMode, setTasksViewMode]);
 
   // Items captured via the global hotkey (Cmd+Shift+S in any app): they arrive
   // instantly with just the URL, then metadata follows once fetched
@@ -194,21 +205,31 @@ function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col relative">
+    <div
+      className={`flex flex-col relative overflow-hidden overscroll-none ${
+        mobile ? "h-[100dvh]" : "h-screen"
+      }`}
+    >
       {/* Shared header: logo + mode switch persist across modes so the pill animates smoothly */}
-      <header className="sticky h-12 top-0 z-50 flex items-center gap-4 pl-20 pr-6 bg-bg border-b border-border relative shrink-0">
+      <header
+        className={`sticky top-0 z-50 flex items-center gap-4 bg-bg border-b border-border relative shrink-0 ${
+          mobile
+            ? "h-[calc(3.5rem+env(safe-area-inset-top))] px-4 pt-[env(safe-area-inset-top)]"
+            : "h-12 pl-20 pr-6"
+        }`}
+      >
         {/* Drag region overlay — sits behind interactive elements */}
         <div data-tauri-drag-region className="absolute inset-0 z-0" />
-        {/* Left: Logo (offset for traffic lights) */}
+        {/* Left: Logo (offset for traffic lights on desktop) */}
         <span className="text-lg font-bold tracking-tighter text-text shrink-0 relative z-10">
-          Cosmos
+          {mobile ? "Tasks" : "Cosmos"}
         </span>
-        <ModeSwitch />
+        {!mobile && <ModeSwitch />}
         <Toolbar />
         <BooksToolbar />
         <GoalsToolbar />
         <TasksToolbar />
-        <button
+        {!mobile && <button
           onClick={handleSeed}
           title="New note in Seedbox"
           className={`ml-auto shrink-0 relative z-10 items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium bg-surface text-[#A8B4C6] hover:text-text hover:bg-[#18191A] transition-colors cursor-pointer ${
@@ -217,7 +238,7 @@ function App() {
         >
           <Sprout size={14} />
           Seed
-        </button>
+        </button>}
       </header>
 
       {/* Both views stay mounted; hiding via CSS avoids reloading all assets on mode switch */}

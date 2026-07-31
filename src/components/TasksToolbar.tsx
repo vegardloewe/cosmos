@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, KanbanSquare, List, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, KanbanSquare, List, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useBoardStore } from "../stores/board-store";
 import type { TasksViewMode } from "../stores/board-store";
 import { TAG_COLORS } from "../lib/colors";
 import { TaskModal } from "./TaskModal";
+import { isIOS } from "../lib/platform";
 
 const VIEW_MODES: { value: TasksViewMode; label: string; icon: typeof List }[] = [
   { value: "board", label: "Board view", icon: KanbanSquare },
@@ -19,6 +20,8 @@ export function TasksToolbar() {
   const removeTaskProject = useBoardStore((s) => s.removeTaskProject);
   const tasksViewMode = useBoardStore((s) => s.tasksViewMode);
   const setTasksViewMode = useBoardStore((s) => s.setTasksViewMode);
+  const refreshTasks = useBoardStore((s) => s.refreshTasks);
+  const isRefreshingTasks = useBoardStore((s) => s.isRefreshingTasks);
 
   const [showPicker, setShowPicker] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -72,6 +75,17 @@ export function TasksToolbar() {
             </button>
           ))}
         </div>
+
+        {!isIOS() && (
+          <button
+            onClick={() => void refreshTasks()}
+            disabled={isRefreshingTasks}
+            title="Refresh tasks from iCloud Drive"
+            className="p-1.5 rounded-full text-[#A8B4C6] hover:text-text hover:bg-[#0F1010] disabled:opacity-50 transition-colors cursor-pointer"
+          >
+            <RefreshCw size={14} className={isRefreshingTasks ? "animate-spin" : undefined} />
+          </button>
+        )}
 
         <div className="relative" ref={pickerRef}>
           <button

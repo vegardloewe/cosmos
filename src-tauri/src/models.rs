@@ -77,7 +77,7 @@ pub struct Task {
     pub project_id: String,
     pub title: String,
     pub description: Option<String>,
-    pub status: String, // "backlog" | "todo" | "in_progress" | "done"
+    pub status: String,           // "backlog" | "todo" | "in_progress" | "done"
     pub priority: Option<String>, // "urgent" | "high" | "medium" | "low"
     pub effort: Option<String>,   // "s" | "m" | "l" | "xl"
     #[serde(default)]
@@ -85,6 +85,34 @@ pub struct Task {
     pub completed_at: Option<String>, // millis; set while status is "done"
     pub created_at: String,
     pub updated_at: String,
+}
+
+/// Tasks intentionally live outside the main vault index.  The task app on
+/// iOS is allowed to sync this one small file through iCloud Drive without
+/// racing updates to moodboard, book, goal, or note metadata.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskStore {
+    #[serde(default = "task_store_version")]
+    pub version: u32,
+    #[serde(default, alias = "task_projects")]
+    pub task_projects: Vec<TaskProject>,
+    #[serde(default)]
+    pub tasks: Vec<Task>,
+}
+
+fn task_store_version() -> u32 {
+    1
+}
+
+impl TaskStore {
+    pub fn new() -> Self {
+        Self {
+            version: task_store_version(),
+            task_projects: Vec::new(),
+            tasks: Vec::new(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -141,12 +141,12 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
   return (
     <div className="fixed inset-0 z-[100] flex bg-black/60" onClick={onClose}>
       <div
-        className="flex w-full max-w-5xl m-auto h-[85vh] bg-surface rounded-2xl overflow-hidden shadow-2xl"
+        className="flex flex-col sm:flex-row w-full max-w-5xl m-auto h-[92dvh] sm:h-[85vh] bg-surface rounded-2xl overflow-hidden shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Main: title + rich text description */}
-        <div className="flex-1 min-w-0 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-10 py-12 flex flex-col gap-6">
+        <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-5 py-6 sm:px-10 sm:py-12 flex flex-col gap-6">
             <textarea
               ref={titleRef}
               rows={1}
@@ -175,7 +175,7 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
         </div>
 
         {/* Sidebar: properties */}
-        <div className="w-64 shrink-0 border-l border-border flex flex-col bg-[#0B0C0C]">
+        <div className="w-full sm:w-64 shrink-0 border-t sm:border-t-0 sm:border-l border-border flex flex-col bg-[#0B0C0C]">
           <div className="flex items-center justify-end p-3">
             <button
               onClick={onClose}

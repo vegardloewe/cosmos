@@ -1,6 +1,6 @@
 # Cosmos
 
-A local-first bookmark app for macOS. Collect images, links, and text notes in a visual masonry grid — all stored as plain files in a folder you choose.
+A local-first personal workspace for macOS and iPhone. Collect images, links, and text notes in a visual masonry grid, while keeping tasks in sync through an iCloud Drive vault you choose.
 
 Built with Tauri 2 + React + TypeScript.
 
@@ -20,6 +20,7 @@ Built with Tauri 2 + React + TypeScript.
 - **AI auto-tagging** — Optional OpenAI-powered tag suggestions and descriptions on import.
 - **Frameless window** — Native macOS traffic lights integrated into the toolbar.
 - **MCP server** — Claude Desktop integration for managing your vault via natural language.
+- **Private iPhone task app** — Install directly from Xcode; no App Store listing or external backend required.
 
 ## Tech Stack
 
@@ -37,13 +38,14 @@ Built with Tauri 2 + React + TypeScript.
 
 ```
 ~/MyVault/
-├── .cosmos/
+├── .moodboard/
 │   ├── index.json          # Metadata index for all items
+│   ├── tasks.json          # Projects and tasks; safe to sync independently
 │   └── assets/             # Images, videos, link thumbnails
 │       ├── a1b2c3d4.jpg
 │       └── e5f6g7h8-preview.jpg
-└── notes/                  # Text notes as markdown
-    └── m3n4o5p6.md
+│   └── notes/              # Text notes as markdown
+│       └── m3n4o5p6.md
 ```
 
 ## Getting Started
@@ -73,6 +75,22 @@ npm run tauri build
 The built app will be at `src-tauri/target/release/bundle/macos/Cosmos.app`. Open the generated `.dmg` and drag Cosmos into Applications.
 
 ![Installation](app-installation.png)
+
+### Private iPhone installation
+
+Cosmos’s iPhone app is task-first and connects directly to the same iCloud Drive vault—there is no App Store listing and no Supabase account.
+
+1. Open your vault in the Mac app once. Existing task data is migrated automatically to `.moodboard/tasks.json`.
+2. Connect your iPhone to the Mac, unlock it, and trust the Mac when prompted.
+3. Run the iOS app with your Apple Developer Team ID:
+
+   ```bash
+   APPLE_DEVELOPMENT_TEAM=YOUR_TEAM_ID npm run ios:dev
+   ```
+
+4. In the iPhone app, tap **Connect iCloud Vault** and select that same vault folder in Files → iCloud Drive.
+
+The iPhone app remembers the folder permission, uses Apple’s coordinated iCloud file access for `tasks.json`, and works offline. Before installing to a physical device, replace the example `com.cosmos.app` identifier in `src-tauri/tauri.conf.json` with a bundle identifier registered to your Apple Developer team.
 
 ### MCP Server (Claude Desktop)
 

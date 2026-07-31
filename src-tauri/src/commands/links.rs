@@ -147,6 +147,7 @@ pub fn import_link_impl(vault: &str, url: &str) -> Result<BoardItem, String> {
 
 /// Add a bare link item immediately (no network) so captures feel instant;
 /// enrich_link_item fills in metadata afterwards.
+#[cfg(desktop)]
 pub fn create_link_item(vault: &str, url: &str) -> Result<BoardItem, String> {
     let now = now_millis();
     let item = BoardItem {
@@ -177,6 +178,7 @@ pub fn create_link_item(vault: &str, url: &str) -> Result<BoardItem, String> {
 }
 
 /// Fetch metadata for an existing link item and update it in the index
+#[cfg(desktop)]
 pub fn enrich_link_item(vault: &str, item_id: &str, url: &str) -> Result<BoardItem, String> {
     let meta = fetch_metadata(vault, item_id, url)?;
 

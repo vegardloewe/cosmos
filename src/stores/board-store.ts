@@ -24,11 +24,13 @@ interface BoardState {
   filterType: ItemType | null;
   filterCollectionId: string | null;
   isLoading: boolean;
+  isRefreshingTasks: boolean;
   selectedItemId: string | null;
   pendingItemId: string | null;
   enrichingItemIds: Set<string>;
 
   loadVault: () => Promise<void>;
+  refreshTasks: () => Promise<void>;
   createNewVault: (path: string) => Promise<void>;
   openExistingVault: (path: string) => Promise<void>;
   addImage: (sourcePath: string) => Promise<void>;
@@ -109,6 +111,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   filterType: null,
   filterCollectionId: null,
   isLoading: true,
+  isRefreshingTasks: false,
   selectedItemId: null,
   pendingItemId: null,
   enrichingItemIds: new Set<string>(),
@@ -138,6 +141,29 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       console.error("Failed to load vault:", e);
     } finally {
       set({ isLoading: false });
+    }
+  },
+
+  refreshTasks: async () => {
+    const { vaultPath, isRefreshingTasks } = get();
+    if (!vaultPath || isRefreshingTasks) return;
+
+    set({ isRefreshingTasks: true });
+    try {
+      const store = await commands.readTaskStore(vaultPath);
+      const activeProjectId = get().activeProjectId;
+      set({
+        taskProjects: store.taskProjects,
+        tasks: store.tasks,
+        activeProjectId: store.taskProjects.some((project) => project.id === activeProjectId)
+          ? activeProjectId
+          : store.taskProjects[0]?.id ?? null,
+      });
+    } catch (e) {
+      // iCloud may still be downloading a newer file; retry on the next tick.
+      console.error("Failed to refresh tasks:", e);
+    } finally {
+      set({ isRefreshingTasks: false });
     }
   },
 

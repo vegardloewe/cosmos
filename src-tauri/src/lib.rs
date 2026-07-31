@@ -1,26 +1,35 @@
-mod models;
 mod commands;
+mod models;
 
-use commands::{vault, items, links, ai, books, capture, goals, tasks, notes};
+use commands::{ai, books, goals, items, links, notes, tasks, vault};
+#[cfg(desktop)]
+use commands::capture;
+#[cfg(desktop)]
 use tauri_plugin_global_shortcut::ShortcutState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dotenvy::dotenv().ok();
-    tauri::Builder::default()
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_shortcuts(["cmd+shift+s"])
-                .expect("invalid capture shortcut")
-                .with_handler(|app, _shortcut, event| {
-                    if event.state == ShortcutState::Pressed {
-                        let app = app.clone();
-                        // Blocking work (AppleScript + HTTP fetch) off the main thread
-                        std::thread::spawn(move || capture::capture_current_page(app));
-                    }
-                })
-                .build(),
-        )
+    let builder = tauri::Builder::default().plugin(tauri_plugin_cosmos_icloud_vault::init());
+
+    // Capturing the front-most browser tab relies on macOS automation APIs;
+    // skip it completely for mobile builds.
+    #[cfg(desktop)]
+    let builder = builder.plugin(
+        tauri_plugin_global_shortcut::Builder::new()
+            .with_shortcuts(["cmd+shift+s"])
+            .expect("invalid capture shortcut")
+            .with_handler(|app, _shortcut, event| {
+                if event.state == ShortcutState::Pressed {
+                    let app = app.clone();
+                    // Blocking work (AppleScript + HTTP fetch) off the main thread
+                    std::thread::spawn(move || capture::capture_current_page(app));
+                }
+            })
+            .build(),
+    );
+
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
@@ -29,6 +38,7 @@ pub fn run() {
             vault::open_vault,
             vault::get_vault_path,
             vault::set_vault_path,
+            vault::choose_icloud_vault,
             items::read_asset,
             items::read_asset_bytes,
             items::get_asset_path,
@@ -53,6 +63,7 @@ pub fn run() {
             goals::add_goal,
             goals::update_goal,
             goals::delete_goal,
+            tasks::read_task_store,
             tasks::add_task_project,
             tasks::delete_task_project,
             tasks::add_task,

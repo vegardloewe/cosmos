@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Book, BookSearchResult, BookStatus, BoardItem, Collection, Goal, NoteEntry, Task, TaskEffort, TaskPriority, TaskProject, TaskStatus, VaultIndex } from "../types";
+import type { Book, BookSearchResult, BookStatus, BoardItem, Collection, Goal, NoteEntry, Task, TaskEffort, TaskPriority, TaskProject, TaskStatus, TaskStore, VaultIndex } from "../types";
 
 export function createVault(path: string): Promise<void> {
   return invoke("create_vault", { path });
@@ -15,6 +15,11 @@ export function getVaultPath(): Promise<string | null> {
 
 export function setVaultPath(path: string): Promise<void> {
   return invoke("set_vault_path", { path });
+}
+
+/** Opens the iOS Files picker and keeps scoped access to the chosen vault. */
+export function chooseIcloudVault(): Promise<string> {
+  return invoke("choose_icloud_vault");
 }
 
 export function readAsset(vault: string, assetPath: string): Promise<string> {
@@ -133,6 +138,11 @@ export function addTaskProject(vault: string, name: string, color: string): Prom
 
 export function deleteTaskProject(vault: string, id: string): Promise<void> {
   return invoke("delete_task_project", { vault, id });
+}
+
+/** Reads the separately synced iCloud task file without reloading the vault. */
+export function readTaskStore(vault: string): Promise<TaskStore> {
+  return invoke("read_task_store", { vault });
 }
 
 export function addTask(

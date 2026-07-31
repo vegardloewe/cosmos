@@ -169,6 +169,9 @@ export function TasksView() {
   const moveTaskToStatus = useBoardStore((s) => s.moveTaskToStatus);
   const persistTaskDrag = useBoardStore((s) => s.persistTaskDrag);
   const tasksViewMode = useBoardStore((s) => s.tasksViewMode);
+  const appMode = useBoardStore((s) => s.appMode);
+  const vaultPath = useBoardStore((s) => s.vaultPath);
+  const refreshTasks = useBoardStore((s) => s.refreshTasks);
 
   const [dragId, setDragId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
@@ -176,6 +179,31 @@ export function TasksView() {
   const [addingToStatus, setAddingToStatus] = useState<TaskStatus | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
   const [showOldTasks, setShowOldTasks] = useState(false);
+
+  // iCloud Drive updates the file outside the app, so refresh on a short
+  // cadence and whenever the app becomes active. Never replace an open edit
+  // or an in-flight drag with data from another device.
+  const shouldPauseRefresh = Boolean(editingTask || addingToStatus || dragId);
+  useEffect(() => {
+    if (appMode !== "tasks" || !vaultPath || shouldPauseRefresh) return;
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") void refreshTasks();
+    };
+
+    refreshIfVisible();
+    const interval = window.setInterval(refreshIfVisible, 15_000);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    window.addEventListener("focus", refreshIfVisible);
+    window.addEventListener("pageshow", refreshIfVisible);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+      window.removeEventListener("focus", refreshIfVisible);
+      window.removeEventListener("pageshow", refreshIfVisible);
+    };
+  }, [appMode, vaultPath, shouldPauseRefresh, refreshTasks]);
 
   const projectTasks = useMemo(
     () => tasks.filter((t) => t.projectId === activeProjectId),
@@ -268,7 +296,7 @@ export function TasksView() {
 
   if (tasksViewMode === "list") {
     return (
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-4">
         {LIST_STATUS_ORDER.map((status) => {
           const column = columns.find((c) => c.value === status)!;
           // Like Linear, empty groups are hidden (unless Done has hidden old tasks)

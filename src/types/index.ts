@@ -85,6 +85,12 @@ export interface Task {
   updatedAt: string;
 }
 
+export interface TaskStore {
+  version: number;
+  taskProjects: TaskProject[];
+  tasks: Task[];
+}
+
 export interface NoteEntry {
   name: string;
   path: string; // relative to the Notes root
