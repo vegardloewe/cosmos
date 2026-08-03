@@ -179,6 +179,7 @@ export function TasksView() {
   const appMode = useBoardStore((s) => s.appMode);
   const vaultPath = useBoardStore((s) => s.vaultPath);
   const refreshTasks = useBoardStore((s) => s.refreshTasks);
+  const pendingTaskDragSaves = useBoardStore((s) => s.pendingTaskDragSaves);
 
   const [dragId, setDragId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
@@ -190,7 +191,9 @@ export function TasksView() {
   // iCloud Drive updates the file outside the app, so refresh on a short
   // cadence and whenever the app becomes active. Never replace an open edit
   // or an in-flight drag with data from another device.
-  const shouldPauseRefresh = Boolean(editingTask || addingToStatus || dragId);
+  const shouldPauseRefresh = Boolean(
+    editingTask || addingToStatus || dragId || pendingTaskDragSaves > 0,
+  );
   useEffect(() => {
     if (appMode !== "tasks" || !vaultPath || shouldPauseRefresh) return;
 
@@ -393,6 +396,17 @@ export function TasksView() {
                     startDrag(task.id);
                     e.dataTransfer.setData("text/plain", task.id);
                     e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const draggedId = dragIdRef.current;
+                    if (draggedId) moveTaskToStatus(draggedId, column.value);
+                    finalizeDrag();
                   }}
                   className={`transition-opacity ${dragId === task.id ? "opacity-40" : ""}`}
                 >

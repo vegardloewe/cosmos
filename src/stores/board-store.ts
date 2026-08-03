@@ -25,6 +25,7 @@ interface BoardState {
   filterCollectionId: string | null;
   isLoading: boolean;
   isRefreshingTasks: boolean;
+  pendingTaskDragSaves: number;
   selectedItemId: string | null;
   pendingItemId: string | null;
   enrichingItemIds: Set<string>;
@@ -111,6 +112,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   filterCollectionId: null,
   isLoading: true,
   isRefreshingTasks: false,
+  pendingTaskDragSaves: 0,
   selectedItemId: null,
   pendingItemId: null,
   enrichingItemIds: new Set<string>(),
@@ -144,12 +146,15 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   },
 
   refreshTasks: async () => {
-    const { vaultPath, isRefreshingTasks } = get();
-    if (!vaultPath || isRefreshingTasks) return;
+    const { vaultPath, isRefreshingTasks, pendingTaskDragSaves } = get();
+    if (!vaultPath || isRefreshingTasks || pendingTaskDragSaves > 0) return;
 
     set({ isRefreshingTasks: true });
     try {
       const store = await commands.readTaskStore(vaultPath);
+      // A save that began while this read was in flight has newer state than
+      // this snapshot, so never overwrite the just-dropped task with it.
+      if (get().pendingTaskDragSaves > 0) return;
       const activeProjectId = get().activeProjectId;
       set({
         taskProjects: store.taskProjects,
@@ -602,10 +607,15 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   persistTaskDrag: async (draggedId) => {
     const { vaultPath, tasks } = get();
     if (!vaultPath) return;
-    const dragged = tasks.find((t) => t.id === draggedId);
-    // Status may have changed while dragging across columns
-    if (dragged) await commands.updateTask(vaultPath, dragged);
-    await commands.reorderTasks(vaultPath, tasks.map((t) => t.id));
+    set((s) => ({ pendingTaskDragSaves: s.pendingTaskDragSaves + 1 }));
+    try {
+      const dragged = tasks.find((t) => t.id === draggedId);
+      // Status may have changed while dragging across columns
+      if (dragged) await commands.updateTask(vaultPath, dragged);
+      await commands.reorderTasks(vaultPath, tasks.map((t) => t.id));
+    } finally {
+      set((s) => ({ pendingTaskDragSaves: Math.max(0, s.pendingTaskDragSaves - 1) }));
+    }
   },
 
   // "Transfer": the note replaces the task (title → filename, description → body)
