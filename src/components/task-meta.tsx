@@ -100,7 +100,27 @@ export function isOverdue(task: Pick<Task, "deadline" | "status">): boolean {
   return Date.now() >= dayAfter.getTime();
 }
 
-export function DeadlineBadge({ deadline, overdue }: { deadline: string; overdue: boolean }) {
+// Completed tasks are excluded because their deadline no longer needs attention.
+export function isDueToday(task: Pick<Task, "deadline" | "status">): boolean {
+  if (!task.deadline || task.status === "done") return false;
+  const due = new Date(Number(task.deadline));
+  const today = new Date();
+  return (
+    due.getFullYear() === today.getFullYear() &&
+    due.getMonth() === today.getMonth() &&
+    due.getDate() === today.getDate()
+  );
+}
+
+export function DeadlineBadge({
+  deadline,
+  overdue,
+  dueToday,
+}: {
+  deadline: string;
+  overdue: boolean;
+  dueToday: boolean;
+}) {
   const label = new Date(Number(deadline)).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -108,7 +128,7 @@ export function DeadlineBadge({ deadline, overdue }: { deadline: string; overdue
   return (
     <span
       className={`flex items-center gap-1 text-[11px] font-medium tabular-nums shrink-0 ${
-        overdue ? "text-red-400" : "text-text-muted"
+        overdue ? "text-red-400" : dueToday ? "text-[#F2C94C]" : "text-text-muted"
       }`}
     >
       <CalendarClock size={12} className="shrink-0" />

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { KanbanSquare, Plus } from "lucide-react";
 import { useBoardStore } from "../stores/board-store";
 import { TAG_COLORS } from "../lib/colors";
 import { TaskModal } from "./TaskModal";
 import { TaskDetail } from "./TaskDetail";
-import { DeadlineBadge, EffortPill, isOverdue, PriorityIcon, STATUSES, StatusIcon } from "./task-meta";
+import { DeadlineBadge, EffortPill, isDueToday, isOverdue, PriorityIcon, STATUSES, StatusIcon } from "./task-meta";
 import { Button } from "@/components/ui/button";
 import type { Task, TaskPriority, TaskStatus } from "../types";
 
@@ -122,7 +122,11 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (task: Task) => void }
             {task.priority && <PriorityIcon priority={task.priority} />}
             {task.effort && <EffortPill effort={task.effort} />}
             {task.deadline && (
-              <DeadlineBadge deadline={task.deadline} overdue={isOverdue(task)} />
+              <DeadlineBadge
+                deadline={task.deadline}
+                overdue={isOverdue(task)}
+                dueToday={isDueToday(task)}
+              />
             )}
           </div>
         )}
@@ -148,7 +152,11 @@ function TaskRow({ task, onEdit }: { task: Task; onEdit: (task: Task) => void })
           {task.title}
         </span>
         {task.deadline && (
-          <DeadlineBadge deadline={task.deadline} overdue={isOverdue(task)} />
+          <DeadlineBadge
+            deadline={task.deadline}
+            overdue={isOverdue(task)}
+            dueToday={isDueToday(task)}
+          />
         )}
         {task.effort && <EffortPill effort={task.effort} />}
         <span className="w-12 text-right text-xs text-text-muted tabular-nums shrink-0">
@@ -165,7 +173,6 @@ export function TasksView() {
   const taskProjects = useBoardStore((s) => s.taskProjects);
   const activeProjectId = useBoardStore((s) => s.activeProjectId);
   const addTaskProject = useBoardStore((s) => s.addTaskProject);
-  const moveTask = useBoardStore((s) => s.moveTask);
   const moveTaskToStatus = useBoardStore((s) => s.moveTaskToStatus);
   const persistTaskDrag = useBoardStore((s) => s.persistTaskDrag);
   const tasksViewMode = useBoardStore((s) => s.tasksViewMode);
@@ -227,33 +234,30 @@ export function TasksView() {
     [projectTasks, showOldTasks],
   );
 
+  const finalizeDrag = useCallback(() => {
+    const id = dragIdRef.current;
+    if (!id) return;
+    dragIdRef.current = null;
+    setDragId(null);
+    void persistTaskDrag(id);
+  }, [persistTaskDrag]);
+
   const startDrag = (id: string) => {
     // A stale drag can linger if the previous one ended without an event
-    // (e.g. cancelled after crossing columns) — settle it before starting anew
+    // (e.g. cancelled after crossing columns) — settle it before starting anew.
     finalizeDrag();
     dragIdRef.current = id;
     setDragId(id);
   };
 
-  const finalizeDrag = () => {
-    const id = dragIdRef.current;
-    if (!id) return;
-    dragIdRef.current = null;
-    setDragId(null);
-    persistTaskDrag(id);
-  };
-
-  // Moving a card to another column remounts its DOM node, so dragend never
-  // fires on the card itself — catch the end of the drag at the document level
+  // A task can be dropped in another status column. Register this at the
+  // document level because moving across columns remounts the source card.
   useEffect(() => {
-    if (!dragId) return;
     document.addEventListener("dragend", finalizeDrag);
-    document.addEventListener("drop", finalizeDrag);
     return () => {
       document.removeEventListener("dragend", finalizeDrag);
-      document.removeEventListener("drop", finalizeDrag);
     };
-  }, [dragId]);
+  }, [finalizeDrag]);
 
   if (taskProjects.length === 0) {
     return (
@@ -356,10 +360,14 @@ export function TasksView() {
             className="flex-1 min-w-0 flex flex-col bg-[#0B0C0C] rounded-xl"
             onDragOver={(e) => {
               e.preventDefault();
-              // Dragging over empty column space moves the task to the end of this column
-              if (dragId) moveTaskToStatus(dragId, column.value);
+              e.dataTransfer.dropEffect = "move";
             }}
-            onDrop={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const draggedId = dragIdRef.current;
+              if (draggedId) moveTaskToStatus(draggedId, column.value);
+              finalizeDrag();
+            }}
           >
             <div className="flex items-center gap-2 px-3 pt-3 pb-2 shrink-0">
               <StatusIcon status={column.value} />
@@ -383,13 +391,8 @@ export function TasksView() {
                   draggable
                   onDragStart={(e) => {
                     startDrag(task.id);
+                    e.dataTransfer.setData("text/plain", task.id);
                     e.dataTransfer.effectAllowed = "move";
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    // Keep the column-level handler from bouncing the card to the end
-                    e.stopPropagation();
-                    if (dragId && dragId !== task.id) moveTask(dragId, task.id);
                   }}
                   className={`transition-opacity ${dragId === task.id ? "opacity-40" : ""}`}
                 >

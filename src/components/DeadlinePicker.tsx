@@ -8,6 +8,7 @@ interface DeadlinePickerProps {
   value?: string; // millis at local midnight, matching Task.deadline
   onChange: (millis: string | null) => void;
   overdue?: boolean;
+  dueToday?: boolean;
   placeholder?: string;
   align?: "start" | "center" | "end";
   className?: string; // trigger button styling
@@ -17,6 +18,7 @@ export function DeadlinePicker({
   value,
   onChange,
   overdue = false,
+  dueToday = false,
   placeholder = "Set deadline",
   align = "start",
   className,
@@ -37,12 +39,17 @@ export function DeadlinePicker({
         <button className={cn("flex items-center gap-2 cursor-pointer", className)}>
           <CalendarClock
             size={14}
-            className={cn("shrink-0", overdue ? "text-red-400" : "text-text-muted")}
+            className={cn(
+              "shrink-0",
+              overdue ? "text-red-400" : dueToday ? "text-[#F2C94C]" : "text-text-muted",
+            )}
           />
           <span
             className={cn(
               "truncate",
-              value ? (overdue ? "text-red-400" : "text-[#D7DCE5]") : "text-text-muted",
+              value
+                ? (overdue ? "text-red-400" : dueToday ? "text-[#F2C94C]" : "text-[#D7DCE5]")
+                : "text-text-muted",
             )}
           >
             {label ?? placeholder}

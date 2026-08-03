@@ -64,7 +64,6 @@ interface BoardState {
   addTask: (title: string, description: string | null, status: TaskStatus, priority: TaskPriority | null, effort: TaskEffort | null, deadline: string | null) => Promise<void>;
   updateTask: (id: string, changes: Partial<Task>) => Promise<void>;
   removeTask: (id: string) => Promise<void>;
-  moveTask: (draggedId: string, overId: string) => void;
   moveTaskToStatus: (draggedId: string, status: TaskStatus) => void;
   persistTaskDrag: (draggedId: string) => Promise<void>;
   transferTaskToNote: (id: string) => Promise<void>;
@@ -588,21 +587,6 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     if (!vaultPath) return;
     await commands.deleteTask(vaultPath, id);
     set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
-  },
-
-  // Local-only move while dragging; persistTaskDrag saves on drop.
-  // Dragging over a card adopts that card's column (kanban semantics).
-  moveTask: (draggedId, overId) => {
-    set((s) => {
-      const from = s.tasks.findIndex((t) => t.id === draggedId);
-      const to = s.tasks.findIndex((t) => t.id === overId);
-      if (from === -1 || to === -1 || from === to) return {};
-      const overStatus = s.tasks[to].status;
-      const next = [...s.tasks];
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, { ...moved, ...statusChange(moved, overStatus) });
-      return { tasks: next };
-    });
   },
 
   moveTaskToStatus: (draggedId, status) => {
