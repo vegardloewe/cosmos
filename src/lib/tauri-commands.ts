@@ -26,6 +26,11 @@ export function readAsset(vault: string, assetPath: string): Promise<string> {
   return invoke("read_asset", { vault, assetPath });
 }
 
+/** A cached, downscaled still of an asset — what board cards render. */
+export function readThumbnail(vault: string, assetPath: string): Promise<string> {
+  return invoke("read_thumbnail", { vault, assetPath });
+}
+
 export function readAssetBytes(vault: string, assetPath: string): Promise<ArrayBuffer> {
   return invoke("read_asset_bytes", { vault, assetPath });
 }

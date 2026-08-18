@@ -1,8 +1,14 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+use tauri::Manager;
 
 use crate::models::BoardItem;
 use super::vault::{read_index, write_index};
+
+/// Board cards are at most a few hundred points wide, so a thumbnail capped at
+/// this many pixels still covers a 2x display with room to spare.
+const THUMB_MAX_DIM: u32 = 800;
 
 fn read_asset_impl(vault: String, asset_path: String) -> Result<String, String> {
     let full_path = Path::new(&vault)
@@ -32,12 +38,87 @@ fn read_asset_impl(vault: String, asset_path: String) -> Result<String, String> 
         _ => "application/octet-stream",
     };
 
-    use std::io::Write;
-    let mut buf = Vec::new();
-    write!(buf, "data:{};base64,", mime).unwrap();
-    let engine = base64_encode(&bytes);
-    buf.extend_from_slice(engine.as_bytes());
-    String::from_utf8(buf).map_err(|e| e.to_string())
+    Ok(data_url(mime, &bytes))
+}
+
+fn data_url(mime: &str, bytes: &[u8]) -> String {
+    format!("data:{};base64,{}", mime, base64_encode(bytes))
+}
+
+/// True when the thumbnail exists and is at least as new as the file it came
+/// from, so an asset replaced on disk regenerates instead of serving a stale one.
+fn thumbnail_is_fresh(cached: &Path, source: &Path) -> bool {
+    let (Ok(cached_at), Ok(source_at)) = (
+        fs::metadata(cached).and_then(|m| m.modified()),
+        fs::metadata(source).and_then(|m| m.modified()),
+    ) else {
+        return false;
+    };
+    cached_at >= source_at
+}
+
+/// A downscaled still of an asset, generated once and cached outside the vault
+/// (it is derived data — no reason to sync it to iCloud). Falls back to the
+/// original bytes for anything that is already small or that we cannot decode.
+fn read_thumbnail_impl(
+    vault: String,
+    asset_path: String,
+    cache_dir: PathBuf,
+) -> Result<String, String> {
+    let source = Path::new(&vault)
+        .join(".moodboard")
+        .join("assets")
+        .join(&asset_path);
+
+    let ext = source
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    // SVG is resolution independent, and decoders for the rest aren't compiled in.
+    if !matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp") {
+        return read_asset_impl(vault, asset_path);
+    }
+
+    // GIFs are always re-encoded, even small ones: decoding keeps just the first
+    // frame, which is what stops board cards animating when nobody is looking.
+    if ext != "gif" {
+        if let Ok((w, h)) = image::image_dimensions(&source) {
+            if w <= THUMB_MAX_DIM && h <= THUMB_MAX_DIM {
+                return read_asset_impl(vault, asset_path);
+            }
+        }
+    }
+
+    let has_alpha = matches!(ext.as_str(), "png" | "gif" | "webp");
+    let (thumb_ext, mime) = if has_alpha {
+        ("png", "image/png")
+    } else {
+        ("jpg", "image/jpeg")
+    };
+
+    let stem = Path::new(&asset_path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| "Invalid asset name".to_string())?;
+    let cached = cache_dir.join(format!("{}.{}", stem, thumb_ext));
+
+    if !thumbnail_is_fresh(&cached, &source) {
+        fs::create_dir_all(&cache_dir)
+            .map_err(|e| format!("Failed to create thumbnail cache: {}", e))?;
+        let img = image::open(&source).map_err(|e| format!("Failed to decode image: {}", e))?;
+        let thumb = img.thumbnail(THUMB_MAX_DIM, THUMB_MAX_DIM);
+        let written = if has_alpha {
+            thumb.into_rgba8().save(&cached)
+        } else {
+            thumb.into_rgb8().save(&cached)
+        };
+        written.map_err(|e| format!("Failed to write thumbnail: {}", e))?;
+    }
+
+    let bytes = fs::read(&cached).map_err(|e| format!("Failed to read thumbnail: {}", e))?;
+    Ok(data_url(mime, &bytes))
 }
 
 fn read_asset_bytes_impl(vault: String, asset_path: String) -> Result<tauri::ipc::Response, String> {
@@ -388,6 +469,20 @@ pub async fn read_asset(vault: String, asset_path: String) -> Result<String, Str
 }
 
 #[tauri::command]
+pub async fn read_thumbnail(
+    app: tauri::AppHandle,
+    vault: String,
+    asset_path: String,
+) -> Result<String, String> {
+    let cache_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| format!("No cache directory: {}", e))?
+        .join("thumbnails");
+    super::run_blocking(move || read_thumbnail_impl(vault, asset_path, cache_dir)).await
+}
+
+#[tauri::command]
 pub async fn read_asset_bytes(vault: String, asset_path: String) -> Result<tauri::ipc::Response, String> {
     super::run_blocking(move || read_asset_bytes_impl(vault, asset_path)).await
 }
@@ -425,4 +520,167 @@ pub async fn update_item(vault: String, item: BoardItem) -> Result<(), String> {
 #[tauri::command]
 pub async fn delete_item(vault: String, id: String) -> Result<(), String> {
     super::run_blocking(move || delete_item_impl(vault, id)).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgb, RgbImage, Rgba, RgbaImage};
+
+    struct Fixture {
+        root: PathBuf,
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            let root = std::env::temp_dir().join(format!("cosmos-thumb-{}", nanoid::nanoid!()));
+            fs::create_dir_all(root.join("vault").join(".moodboard").join("assets")).unwrap();
+            fs::create_dir_all(root.join("cache")).unwrap();
+            Fixture { root }
+        }
+
+        fn vault(&self) -> String {
+            self.root.join("vault").to_str().unwrap().to_string()
+        }
+
+        fn cache(&self) -> PathBuf {
+            self.root.join("cache")
+        }
+
+        fn asset(&self, name: &str) -> PathBuf {
+            self.root
+                .join("vault")
+                .join(".moodboard")
+                .join("assets")
+                .join(name)
+        }
+
+        fn thumbnail(&self, name: &str) -> Result<String, String> {
+            read_thumbnail_impl(self.vault(), name.to_string(), self.cache())
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    /// Decodes a data URL back into an image so tests can assert on real pixels.
+    fn decode(data_url: &str) -> image::DynamicImage {
+        let payload = data_url.split_once("base64,").expect("not a data url").1;
+        const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut bits = Vec::new();
+        for byte in payload.bytes().filter(|b| *b != b'=') {
+            bits.push(CHARS.iter().position(|c| *c == byte).unwrap() as u32);
+        }
+        let mut bytes = Vec::new();
+        for chunk in bits.chunks(4) {
+            let mut triple = 0u32;
+            for (i, v) in chunk.iter().enumerate() {
+                triple |= v << (18 - 6 * i);
+            }
+            bytes.push((triple >> 16) as u8);
+            if chunk.len() > 2 {
+                bytes.push((triple >> 8) as u8);
+            }
+            if chunk.len() > 3 {
+                bytes.push(triple as u8);
+            }
+        }
+        image::load_from_memory(&bytes).expect("thumbnail is not a decodable image")
+    }
+
+    #[test]
+    fn large_photo_is_downscaled_to_jpeg() {
+        let fixture = Fixture::new();
+        RgbImage::from_pixel(2400, 1200, Rgb([12, 34, 56]))
+            .save(fixture.asset("big.jpg"))
+            .unwrap();
+
+        let url = fixture.thumbnail("big.jpg").unwrap();
+        assert!(url.starts_with("data:image/jpeg;base64,"));
+
+        let thumb = decode(&url);
+        assert_eq!(thumb.width(), THUMB_MAX_DIM);
+        assert_eq!(thumb.height(), THUMB_MAX_DIM / 2, "aspect ratio preserved");
+    }
+
+    #[test]
+    fn transparency_survives_as_png() {
+        let fixture = Fixture::new();
+        RgbaImage::from_pixel(1600, 1600, Rgba([255, 0, 0, 0]))
+            .save(fixture.asset("clear.png"))
+            .unwrap();
+
+        let url = fixture.thumbnail("clear.png").unwrap();
+        assert!(url.starts_with("data:image/png;base64,"));
+        assert_eq!(decode(&url).to_rgba8().get_pixel(0, 0)[3], 0);
+    }
+
+    #[test]
+    fn small_images_are_passed_through_untouched() {
+        let fixture = Fixture::new();
+        RgbImage::from_pixel(120, 90, Rgb([1, 2, 3]))
+            .save(fixture.asset("small.png"))
+            .unwrap();
+
+        let url = fixture.thumbnail("small.png").unwrap();
+        let thumb = decode(&url);
+        assert_eq!((thumb.width(), thumb.height()), (120, 90));
+        assert!(
+            !fixture.cache().join("small.png").exists(),
+            "nothing to downscale, so nothing should be cached"
+        );
+    }
+
+    #[test]
+    fn animated_gifs_are_frozen_to_one_frame() {
+        let fixture = Fixture::new();
+        let path = fixture.asset("loop.gif");
+        {
+            let file = fs::File::create(&path).unwrap();
+            let mut encoder = image::codecs::gif::GifEncoder::new(file);
+            for shade in [0u8, 255u8] {
+                let frame = RgbaImage::from_pixel(64, 64, Rgba([shade, shade, shade, 255]));
+                encoder
+                    .encode_frame(image::Frame::new(frame))
+                    .expect("failed to encode frame");
+            }
+        }
+
+        // Small, but a GIF is re-encoded anyway — that is what drops the animation.
+        let url = fixture.thumbnail("loop.gif").unwrap();
+        assert!(url.starts_with("data:image/png;base64,"));
+        assert!(fixture.cache().join("loop.png").exists());
+        assert_eq!(decode(&url).to_rgba8().get_pixel(0, 0)[0], 0, "first frame");
+    }
+
+    #[test]
+    fn undecodable_formats_fall_back_to_the_original_bytes() {
+        let fixture = Fixture::new();
+        let svg = b"<svg xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"9\" height=\"9\"/></svg>";
+        fs::write(fixture.asset("vector.svg"), svg).unwrap();
+
+        let url = fixture.thumbnail("vector.svg").unwrap();
+        assert_eq!(url, data_url("image/svg+xml", svg));
+    }
+
+    #[test]
+    fn a_replaced_asset_regenerates_its_thumbnail() {
+        let fixture = Fixture::new();
+        RgbImage::from_pixel(1000, 1000, Rgb([0, 0, 0]))
+            .save(fixture.asset("swap.jpg"))
+            .unwrap();
+        assert_eq!(decode(&fixture.thumbnail("swap.jpg").unwrap()).width(), 800);
+
+        // Same name, different contents and a newer mtime.
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        RgbImage::from_pixel(1600, 800, Rgb([255, 255, 255]))
+            .save(fixture.asset("swap.jpg"))
+            .unwrap();
+
+        let thumb = decode(&fixture.thumbnail("swap.jpg").unwrap());
+        assert_eq!((thumb.width(), thumb.height()), (800, 400), "stale cache served");
+    }
 }

@@ -41,6 +41,7 @@ pub fn run() {
             vault::choose_icloud_vault,
             items::read_asset,
             items::read_asset_bytes,
+            items::read_thumbnail,
             items::get_asset_path,
             items::import_image,
             items::import_image_data,

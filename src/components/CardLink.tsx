@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useBoardStore } from "../stores/board-store";
-import { readAsset } from "../lib/tauri-commands";
+import { readThumbnail } from "../lib/tauri-commands";
+import { useNearViewport } from "../hooks/use-near-viewport";
 import type { BoardItem } from "../types";
 
 interface CardLinkProps {
@@ -17,20 +18,32 @@ function getDomain(url: string): string {
 
 export function CardLink({ item }: CardLinkProps) {
   const vaultPath = useBoardStore((s) => s.vaultPath);
+  const { ref, near } = useNearViewport();
   const [thumbnailSrc, setThumbnailSrc] = useState<string | null>(null);
 
+  // Deferred until the card is nearly in view; a failure just leaves the
+  // placeholder below in place rather than retrying forever.
   useEffect(() => {
-    if (!item.linkPreviewPath || !vaultPath) return;
-    readAsset(vaultPath, item.linkPreviewPath).then(setThumbnailSrc).catch(console.error);
-  }, [vaultPath, item.linkPreviewPath]);
+    if (!near || thumbnailSrc || !item.linkPreviewPath || !vaultPath) return;
+    let cancelled = false;
+
+    readThumbnail(vaultPath, item.linkPreviewPath)
+      .then((src) => {
+        if (!cancelled) setThumbnailSrc(src);
+      })
+      .catch(console.error);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [near, thumbnailSrc, vaultPath, item.linkPreviewPath]);
 
   return (
-    <div className="w-full text-left">
+    <div ref={ref} className="w-full text-left">
       {thumbnailSrc ? (
         <img
           src={thumbnailSrc}
           alt={item.linkTitle ?? ""}
-          loading="lazy"
           className="w-full object-cover"
         />
       ) : (
