@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useBoardStore } from "../stores/board-store";
 import { readAssetBytes } from "../lib/tauri-commands";
 import type { BoardItem } from "../types";
@@ -17,38 +17,84 @@ const mimeForExt: Record<string, string> = {
 
 export function CardVideo({ item }: CardVideoProps) {
   const vaultPath = useBoardStore((s) => s.vaultPath);
+  // The board stays mounted behind `display: none` when another mode is open
+  // (see App.tsx), and WebKit keeps decoding a hidden <video> — it only stops
+  // painting it. So playback is gated on the mode as well as on visibility.
+  const boardVisible = useBoardStore((s) => s.appMode === "moodboard");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [onScreen, setOnScreen] = useState(false);
   const [src, setSrc] = useState<string | null>(null);
 
+  const active = boardVisible && onScreen;
+
+  // Cards scrolled out of the viewport (and every card of a hidden board)
+  // report as not intersecting, which is what pauses them.
   useEffect(() => {
-    if (!item.assetPath || !vaultPath) return;
-    let revoked = false;
-    let blobUrl: string | null = null;
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setOnScreen(entry.isIntersecting),
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Bytes are only pulled once the card is actually about to be seen, and the
+  // blob is kept afterwards so scrolling back doesn't re-read from disk.
+  useEffect(() => {
+    if (!active || src || !item.assetPath || !vaultPath) return;
+    let cancelled = false;
 
     readAssetBytes(vaultPath, item.assetPath).then((buffer) => {
-      if (revoked) return;
+      if (cancelled) return;
       const ext = item.assetPath?.split(".").pop()?.toLowerCase() || "mp4";
       const mime = mimeForExt[ext] || "video/mp4";
       const blob = new Blob([buffer], { type: mime });
-      blobUrl = URL.createObjectURL(blob);
-      setSrc(blobUrl);
+      setSrc(URL.createObjectURL(blob));
     }).catch(console.error);
 
     return () => {
-      revoked = true;
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      cancelled = true;
     };
+  }, [active, src, vaultPath, item.assetPath]);
+
+  useEffect(() => {
+    setSrc(null);
   }, [vaultPath, item.assetPath]);
 
-  if (!src) return <div className="w-full h-48 bg-bg animate-pulse rounded-2xl" />;
+  useEffect(() => {
+    return () => {
+      if (src) URL.revokeObjectURL(src);
+    };
+  }, [src]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !src) return;
+    if (active) {
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  }, [active, src]);
 
   return (
-    <video
-      src={src}
-      muted
-      loop
-      autoPlay
-      playsInline
-      className="w-full"
-    />
+    <div ref={containerRef} className="w-full">
+      {src ? (
+        <video
+          ref={videoRef}
+          src={src}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          className="w-full"
+        />
+      ) : (
+        <div className="w-full h-48 bg-bg rounded-2xl" />
+      )}
+    </div>
   );
 }
