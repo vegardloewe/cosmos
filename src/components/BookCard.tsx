@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { BookOpen } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useBoardStore } from "../stores/board-store";
-import { readAsset } from "../lib/tauri-commands";
+import { readThumbnail } from "../lib/tauri-commands";
+import { useNearViewport } from "../hooks/use-near-viewport";
 import { BookEditModal } from "./BookEditModal";
 import type { Book } from "../types";
 
@@ -15,7 +16,9 @@ export function BookCard({ book }: BookCardProps) {
   const updateBook = useBoardStore((s) => s.updateBook);
   const setBookCover = useBoardStore((s) => s.setBookCover);
   const removeBook = useBoardStore((s) => s.removeBook);
+  const { ref: cardRef, near } = useNearViewport();
   const [src, setSrc] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [editingYear, setEditingYear] = useState(false);
   const [yearValue, setYearValue] = useState("");
@@ -23,9 +26,28 @@ export function BookCard({ book }: BookCardProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!book.coverPath || !vaultPath) return;
-    readAsset(vaultPath, book.coverPath).then(setSrc).catch(console.error);
+    setSrc(null);
+    setFailed(false);
   }, [vaultPath, book.coverPath]);
+
+  useEffect(() => {
+    if (!near || src || failed || !book.coverPath || !vaultPath) return;
+    let cancelled = false;
+
+    readThumbnail(vaultPath, book.coverPath)
+      .then((cover) => {
+        if (!cancelled) setSrc(cover);
+      })
+      .catch((err) => {
+        console.error(err);
+        // Otherwise the skeleton below pulses forever on a missing cover.
+        if (!cancelled) setFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [near, src, failed, vaultPath, book.coverPath]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -82,13 +104,13 @@ export function BookCard({ book }: BookCardProps) {
 
   return (
     <>
-      <div className="group cursor-pointer" onContextMenu={handleContextMenu}>
+      <div ref={cardRef} className="group cursor-pointer" onContextMenu={handleContextMenu}>
         <div className="book-3d">
           <div className="book-3d-inner">
             <div className="book-3d-back" />
             <div className="book-3d-pages" />
             <div className="book-3d-cover">
-              {book.coverPath ? (
+              {book.coverPath && !failed ? (
                 src ? (
                   <img src={src} alt={book.title} loading="lazy" draggable={false} className="w-full h-full object-cover" />
                 ) : (

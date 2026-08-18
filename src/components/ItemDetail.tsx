@@ -4,7 +4,7 @@ import { readAsset, readAssetBytes } from "../lib/tauri-commands";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { TagPill } from "./TagPill";
 import { CollectionPicker } from "./CollectionPicker";
-import { PlusIcon } from "lucide-react";
+import { ImageOff, PlusIcon } from "lucide-react";
 import { MarkdownEditor } from "./MarkdownEditor";
 
 function formatDate(millis: string): string {
@@ -47,6 +47,7 @@ export function ItemDetail() {
 
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [assetFailed, setAssetFailed] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
   const [tagInput, setTagInput] = useState("");
@@ -97,6 +98,7 @@ export function ItemDetail() {
   useEffect(() => {
     setImageSrc(null);
     setVideoSrc(null);
+    setAssetFailed(false);
     if (!item || !vaultPath) return;
 
     if (item.type === "video" && item.assetPath) {
@@ -112,12 +114,18 @@ export function ItemDetail() {
         const blob = new Blob([buffer], { type: mimeMap[ext] || "video/mp4" });
         blobUrl = URL.createObjectURL(blob);
         setVideoSrc(blobUrl);
-      }).catch(console.error);
+      }).catch((err) => {
+        console.error(err);
+        if (!cancelled) setAssetFailed(true);
+      });
       return () => { cancelled = true; if (blobUrl) URL.revokeObjectURL(blobUrl); };
     } else {
       const assetPath = item.assetPath || item.linkPreviewPath;
       if (assetPath) {
-        readAsset(vaultPath, assetPath).then(setImageSrc).catch(console.error);
+        readAsset(vaultPath, assetPath).then(setImageSrc).catch((err) => {
+          console.error(err);
+          setAssetFailed(true);
+        });
       }
     }
   }, [item?.id, item?.assetPath, item?.linkPreviewPath, vaultPath]);
@@ -268,12 +276,19 @@ export function ItemDetail() {
                   className="max-w-full max-h-full rounded-lg"
                 />
               )}
-              {item.type === "video" && !videoSrc && (
-                <div className="w-full h-64 bg-surface rounded-lg animate-pulse" />
-              )}
-              {item.type === "image" && !imageSrc && (
-                <div className="w-full h-64 bg-surface rounded-lg animate-pulse" />
-              )}
+              {(item.type === "video" || item.type === "image") &&
+                !videoSrc &&
+                !imageSrc &&
+                (assetFailed ? (
+                  <div className="w-full h-64 flex flex-col items-center justify-center gap-2 bg-surface rounded-lg">
+                    <ImageOff size={24} className="text-text-muted" />
+                    <span className="text-xs text-text-muted">
+                      This file couldn't be read
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-full h-64 bg-surface rounded-lg animate-pulse" />
+                ))}
             </>
           )}
         </div>
